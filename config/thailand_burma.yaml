@@ -1,0 +1,30 @@
+# OSM Country Report Configuration
+# Thailand and Myanmar Analysis
+
+countries:
+  - TH  # Thailand
+  - MM  # Myanmar/Burma
+
+years:
+  start: 2015
+  end: 2025
+  # Generates: 2015, 2016, 2017, ..., 2025 (11 years)
+
+entities:
+  - building
+  - road
+
+output:
+  directory: ./results
+  cache_directory: ./cache
+
+processing:
+  chunk_size_km: 50  # Grid size in kilometers
+  max_concurrent_requests: 10  # Concurrent API calls
+  chunked_threshold_km2: 5000  # Area threshold for chunking
+
+# Optional: Specific years instead of range
+# years:
+#   - 2015
+#   - 2020
+#   - 2025
