@@ -24,20 +24,21 @@ class SemanticTagsAdapter:
     Adapter for tags_semantic_analysis with chunking support.
     """
 
-    def __init__(self, chunk_size_km: float = 50):
+    def __init__(self, chunk_size_km: float = 50, timeout: int = 30):
         """
         Initialize semantic tags adapter.
 
         Args:
             chunk_size_km: Grid chunk size in km
+            timeout: API request timeout in seconds (default: 30)
         """
-        self.client = OhsomeClient()
+        self.client = OhsomeClient(timeout=timeout)
         self.analyzer = ChunkedTagAnalyzer(
             ohsome_client=self.client,
             chunk_size_km=chunk_size_km
         )
 
-        logger.info("SemanticTagsAdapter initialized successfully")
+        logger.info(f"SemanticTagsAdapter initialized with {timeout}s timeout")
 
     def analyze_country(
         self,

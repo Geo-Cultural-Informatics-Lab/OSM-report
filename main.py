@@ -112,6 +112,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--api-timeout',
+        type=int,
+        default=30,
+        help='API request timeout in seconds (default: 30)'
+    )
+
+    parser.add_argument(
         '--test-mode',
         action='store_true',
         help='Test mode: uses larger chunks, fewer grids for quick testing'
@@ -178,7 +185,8 @@ async def main_async(args):
         cache_dir=args.cache,
         results_dir=args.output,
         chunk_size_km=chunk_size,
-        max_concurrent=max_concurrent
+        max_concurrent=max_concurrent,
+        api_timeout=args.api_timeout
     )
 
     # Clear cache if requested

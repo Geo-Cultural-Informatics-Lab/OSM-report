@@ -24,10 +24,15 @@ class GeometricComplexityAdapter:
     Adapter for geometric_complexity analysis.
     """
 
-    def __init__(self):
-        """Initialize geometric complexity adapter."""
-        self.client = OhsomeClient()
-        logger.info("GeometricComplexityAdapter initialized successfully")
+    def __init__(self, timeout: int = 30):
+        """
+        Initialize geometric complexity adapter.
+
+        Args:
+            timeout: API request timeout in seconds (default: 30)
+        """
+        self.client = OhsomeClient(timeout=timeout)
+        logger.info(f"GeometricComplexityAdapter initialized with {timeout}s timeout")
 
     def analyze_grid(
         self,

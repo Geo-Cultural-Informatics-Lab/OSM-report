@@ -31,7 +31,8 @@ class CacheManager:
         grid_col: int,
         year: int,
         entity: str,
-        metric_type: str
+        metric_type: str,
+        chunk_size_km: float = None
     ) -> str:
         """
         Generate cache key for a grid result.
@@ -43,11 +44,17 @@ class CacheManager:
             year: Year
             entity: Entity type (building/road)
             metric_type: Type of metric (geom/tags/metrics)
+            chunk_size_km: Chunk size in km (optional, for cache invalidation)
 
         Returns:
             Cache key string
         """
-        return f"{iso}_grid_{grid_row}_{grid_col}_{year}_{entity}_{metric_type}.json"
+        if chunk_size_km is not None:
+            # Include chunk size to prevent cache collision between different chunk sizes
+            return f"{iso}_grid_{grid_row}_{grid_col}_{year}_{entity}_{int(chunk_size_km)}km_{metric_type}.json"
+        else:
+            # Legacy format for backward compatibility
+            return f"{iso}_grid_{grid_row}_{grid_col}_{year}_{entity}_{metric_type}.json"
 
     def _get_cache_path(self, cache_key: str) -> Path:
         """Get full path for cache file."""
@@ -60,7 +67,8 @@ class CacheManager:
         grid_col: int,
         year: int,
         entity: str,
-        metric_type: str
+        metric_type: str,
+        chunk_size_km: float = None
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve cached data.
@@ -72,11 +80,12 @@ class CacheManager:
             year: Year
             entity: Entity type
             metric_type: Type of metric
+            chunk_size_km: Chunk size in km (optional)
 
         Returns:
             Cached data or None if not found
         """
-        cache_key = self._get_cache_key(iso, grid_row, grid_col, year, entity, metric_type)
+        cache_key = self._get_cache_key(iso, grid_row, grid_col, year, entity, metric_type, chunk_size_km)
         cache_path = self._get_cache_path(cache_key)
 
         if not cache_path.exists():
@@ -97,7 +106,8 @@ class CacheManager:
         year: int,
         entity: str,
         metric_type: str,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
+        chunk_size_km: float = None
     ) -> None:
         """
         Store data in cache.
@@ -110,8 +120,9 @@ class CacheManager:
             entity: Entity type
             metric_type: Type of metric
             data: Data to cache
+            chunk_size_km: Chunk size in km (optional)
         """
-        cache_key = self._get_cache_key(iso, grid_row, grid_col, year, entity, metric_type)
+        cache_key = self._get_cache_key(iso, grid_row, grid_col, year, entity, metric_type, chunk_size_km)
         cache_path = self._get_cache_path(cache_key)
 
         try:

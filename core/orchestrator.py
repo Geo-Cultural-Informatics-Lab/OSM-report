@@ -34,6 +34,7 @@ from core.cache_manager import CacheManager
 from core.aggregator import MetricsAggregator
 from utils.async_runner import AsyncGridRunner
 from utils.grid_utils import split_country_into_grids
+from utils.polygon_filter import PolygonFilter
 from integrations.completeness_adapter import CompletenessAdapter
 
 # Note: Real adapters (GeometricComplexityAdapter, SemanticTagsAdapter) are imported
@@ -55,7 +56,8 @@ class CountryReportOrchestrator:
         cache_dir: str = "./cache",
         results_dir: str = "./results",
         chunk_size_km: float = 50,
-        max_concurrent: int = 10
+        max_concurrent: int = 10,
+        api_timeout: int = 30
     ):
         """
         Initialize orchestrator.
@@ -65,11 +67,13 @@ class CountryReportOrchestrator:
             results_dir: Results output directory
             chunk_size_km: Grid chunk size in km
             max_concurrent: Max concurrent requests
+            api_timeout: API request timeout in seconds (default: 30)
         """
         self.cache_dir = Path(cache_dir)
         self.results_dir = Path(results_dir)
         self.chunk_size_km = chunk_size_km
         self.max_concurrent = max_concurrent
+        self.api_timeout = api_timeout
 
         # Create directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -79,6 +83,7 @@ class CountryReportOrchestrator:
         self.cache = CacheManager(cache_dir=str(cache_dir))
         self.aggregator = MetricsAggregator()
         self.async_runner = AsyncGridRunner(max_concurrent=max_concurrent)
+        self.polygon_filter = PolygonFilter()  # Auto-finds World_Countries.geojson
 
         # Initialize adapters
         # Import adapters here (after bootstrap has run) to ensure packages are available
@@ -103,7 +108,7 @@ class CountryReportOrchestrator:
         # Try real geometric adapter
         if GeometricComplexityAdapter:
             try:
-                self.geom_adapter = GeometricComplexityAdapter()
+                self.geom_adapter = GeometricComplexityAdapter(timeout=api_timeout)
                 logger.info("Using REAL GeometricComplexityAdapter")
             except Exception as e:
                 logger.warning(f"Real GeometricComplexityAdapter failed, using mock: {e}")
@@ -115,7 +120,7 @@ class CountryReportOrchestrator:
         # Try real tags adapter
         if SemanticTagsAdapter:
             try:
-                self.tags_adapter = SemanticTagsAdapter(chunk_size_km=chunk_size_km)
+                self.tags_adapter = SemanticTagsAdapter(chunk_size_km=chunk_size_km, timeout=api_timeout)
                 logger.info("Using REAL SemanticTagsAdapter")
             except Exception as e:
                 logger.warning(f"Real SemanticTagsAdapter failed, using mock: {e}")
@@ -231,6 +236,11 @@ class CountryReportOrchestrator:
 
         logger.info(f"{iso_code} {year} {entity}: Split into {len(grids)} grids")
 
+        # Filter grids to only those that intersect with country polygon
+        grids = self.polygon_filter.filter_grids(grids, iso_code)
+
+        logger.info(f"{iso_code} {year} {entity}: Processing {len(grids)} grids after polygon filtering")
+
         # Process grids (check cache first, then analyze)
         grid_results = await self._process_grids_with_cache(
             iso_code, year, entity, grids
@@ -272,7 +282,7 @@ class CountryReportOrchestrator:
             row = grid['row']
             col = grid['col']
 
-            # Check cache
+            # Check cache (include chunk size for correct cache lookup)
             cached = self._get_from_cache(iso_code, row, col, year, entity)
 
             if cached:
@@ -395,7 +405,7 @@ class CountryReportOrchestrator:
         entity: str
     ) -> Optional[Dict]:
         """Get grid result from cache."""
-        return self.cache.get(iso_code, row, col, year, entity, "combined")
+        return self.cache.get(iso_code, row, col, year, entity, "combined", self.chunk_size_km)
 
     def _store_in_cache(
         self,
@@ -407,7 +417,7 @@ class CountryReportOrchestrator:
         data: Dict
     ):
         """Store grid result in cache."""
-        self.cache.set(iso_code, row, col, year, entity, "combined", data)
+        self.cache.set(iso_code, row, col, year, entity, "combined", data, self.chunk_size_km)
 
     def _write_primary_csv(
         self,

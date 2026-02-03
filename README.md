@@ -1,239 +1,203 @@
 # OSM Country Report Generator
 
-Master repository for generating comprehensive OpenStreetMap quality reports across multiple countries, years, and entity types.
-
-## Overview
-
-This tool integrates multiple OSM quality metrics into unified CSV reports:
-- **Geometric Complexity**: Mean complexity ratio (building shape quality)
-- **Semantic Tagging**: Tag richness, diversity (Shannon index), evenness
-- **Future**: Feature completeness, innovation metrics
+Unified report generator for OpenStreetMap country-level quality metrics, integrating geometric complexity, tag semantic analysis, and completeness metrics.
 
 ## Features
 
-- ✅ **Grid-based chunking**: Handles large countries (Thailand, Myanmar) without timeouts
-- ✅ **Async processing**: Concurrent API requests with rate limiting
-- ✅ **Smart caching**: Disk-based cache to avoid redundant API calls
-- ✅ **Rate limit handling**: Exponential backoff with graceful degradation
-- ✅ **Dual CSV output**: Primary metrics + detailed tag-level data
-- ✅ **Progress tracking**: Real-time progress bars showing year/entity and grid processing
-- ✅ **Incremental runs**: Merge data when running entities separately
+- **Geometric Complexity Analysis**: Per-grid building/road geometry complexity metrics
+- **Tag Semantic Analysis**: Country-level tag richness, diversity, and Shannon index
+- **Smart Caching**: Grid-level caching with chunk-size awareness
+- **Polygon Filtering**: Automatically filters out ocean/border grids
+- **Async Processing**: Concurrent API calls with configurable limits
+- **Progress Tracking**: Real-time progress bars and detailed logging
+
+## Dependencies
+
+This project requires two companion packages:
+- `geometric_complexity`: Building/road geometry analysis
+- `tags_semantic_analysis`: OSM tag semantic analysis
 
 ## Installation
 
+### Option 1: Development Setup (Editable Install)
+
 ```bash
-cd report
+# Clone all repositories
+git clone https://github.com/yourusername/geometric_complexity.git
+git clone https://github.com/yourusername/tags_semantic_analysis.git
+git clone https://github.com/yourusername/osm-report.git
+
+# Install dependencies as editable packages
+cd geometric_complexity && pip install -e . && cd ..
+cd tags_semantic_analysis && pip install -e . && cd ..
+cd osm-report
 pip install -r requirements.txt
 ```
 
-## Usage
+### Option 2: Production Setup (Package Install)
+
+```bash
+pip install git+https://github.com/yourusername/geometric_complexity.git
+pip install git+https://github.com/yourusername/tags_semantic_analysis.git
+git clone https://github.com/yourusername/osm-report.git
+cd osm-report
+pip install -r requirements.txt
+```
+
+## Quick Start
 
 ### Basic Usage
 
 ```bash
-# Generate report for Thailand, all years 2015-2025, buildings only
-python main.py --countries TH --years 2015-2025 --entities building
+# Generate report for Thailand, 2024, buildings only
+python main.py --countries TH --years 2024 --entities building
 
-# Multiple countries and entities (recommended - runs in one go)
-python main.py --countries TH MM --years 2015-2025 --entities building road
+# Multiple countries and years
+python main.py --countries TH MM --years 2020-2025 --entities building highway
 
-# Specific years only
-python main.py --countries TH --years "2015 2020 2025" --entities building
-```
-
-### Incremental Runs (Separate Entities)
-
-**✨ NEW**: You can now run entities separately and data will be merged:
-
-```bash
-# First run: buildings only
-python main.py --countries TH --years 2015-2025 --entities building
-
-# Second run: roads (will merge with existing buildings data)
-python main.py --countries TH --years 2015-2025 --entities road
-
-# Result: thailand.csv contains both buildings AND roads
-```
-
-**How it works**:
-- The tool checks if CSV exists
-- Merges new data with existing based on `(country, year, entity)` key
-- Overwrites duplicate entries (useful for re-running failed entities)
-- Sorts final output by country, year, entity
-
-### Test Mode
-
-Quick test with larger chunks (fewer API calls):
-
-```bash
+# Test mode (faster, for testing)
 python main.py --countries TH --years 2024 --entities building --test-mode
 ```
 
-### Options
+### Advanced Options
 
+```bash
+python main.py \
+  --countries TH MM \
+  --years 2015-2025 \
+  --entities building highway \
+  --chunk-size 25 \
+  --max-concurrent 5 \
+  --api-timeout 30 \
+  --cache ./cache \
+  --output ./results
 ```
---countries TH MM          Country ISO codes
---years 2015-2025          Year range or specific years
---entities building road   Entity types to analyze
---output ./results         Output directory (default: ./results)
---cache ./cache            Cache directory (default: ./cache)
---chunk-size 50            Grid chunk size in km (default: 50)
---max-concurrent 10        Max concurrent requests (default: 10)
---test-mode                Use larger chunks for quick testing
---clear-cache              Clear cache before running
---verbose                  Verbose logging
-```
+
+## Command-Line Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--countries` | Country ISO codes (e.g., TH MM) | Required |
+| `--years` | Years to analyze (e.g., "2015-2025" or "2020 2022 2024") | Required |
+| `--entities` | Entity types: building, highway | Required |
+| `--chunk-size` | Grid chunk size in km | 50 |
+| `--max-concurrent` | Max concurrent API requests | 10 |
+| `--api-timeout` | API timeout in seconds | 30 |
+| `--cache` | Cache directory | ./cache |
+| `--output` | Output directory | ./results |
+| `--test-mode` | Test mode (smaller chunks, fewer grids) | False |
+| `--clear-cache` | Clear cache before running | False |
+| `--verbose` | Verbose logging | False |
 
 ## Output
 
-### Primary Report: `{country}.csv`
+### CSV Files
 
-One CSV per country with multiple rows (year × entity combinations):
+The generator creates two CSV files per country:
 
+**Primary CSV** (`th.csv`):
 ```csv
-country,year,entity,geometric_complexity,unique_tags_count,richness_mean,...
-TH,2015,building,0.38,72,3.1,3.0,0.85,2.87
-TH,2015,road,0.31,45,2.8,2.0,0.79,2.34
-TH,2016,building,0.39,75,3.2,3.0,0.86,2.91
-...
+country,year,entity,geometric_complexity,unique_tags_count,richness_mean,richness_median,evenness,shannon_index
+TH,2024,building,0.4523,42,3.25,2.80,0.75,2.45
 ```
 
-### Tag Detail Report: `{country}_tags_detail.csv`
-
-Detailed tag-level data (top 5% tags):
-
+**Detail CSV** (`th_tags_detail.csv`):
 ```csv
 country,year,entity,tag_key,frequency,proportion,rank,in_top5pct
-TH,2015,building,building,1500000,0.98,1,True
-TH,2015,building,addr:housenumber,450000,0.29,2,True
-...
+TH,2024,building,building,0.833,0.833,1,True
+TH,2024,building,addr:street,0.421,0.421,2,True
 ```
+
+## Performance Tuning
+
+### Recommended Settings by Use Case
+
+**Quick Test (Single Year)**
+```bash
+python main.py --countries TH --years 2024 --entities building \
+  --chunk-size 25 --max-concurrent 5 --test-mode
+```
+
+**Production (All Years)**
+```bash
+python main.py --countries TH MM --years 2015-2025 --entities building highway \
+  --chunk-size 25 --max-concurrent 5 --api-timeout 30
+```
+
+**Dense Urban Areas**
+```bash
+python main.py --countries TH --years 2024 --entities building \
+  --chunk-size 15 --max-concurrent 3 --api-timeout 45
+```
+
+### Performance Tips
+
+1. **Smaller chunks** = fewer timeouts but more API calls
+2. **Lower concurrency** = more reliable but slower
+3. **Cache accumulates** - subsequent runs are much faster
+4. **Polygon filtering** saves 50-60% of API calls
 
 ## Architecture
 
 ```
 report/
-├── main.py                  # CLI entry point
 ├── core/
-│   ├── orchestrator.py      # Main workflow coordinator
-│   ├── cache_manager.py     # Disk cache
-│   └── aggregator.py        # Metrics aggregation
+│   ├── orchestrator.py      # Main coordination
+│   ├── aggregator.py         # Metrics aggregation
+│   ├── cache_manager.py      # Grid-level caching
+│   └── _bootstrap.py         # Package loader
 ├── integrations/
 │   ├── geometric_complexity_adapter.py
 │   ├── semantic_tags_adapter.py
 │   └── completeness_adapter.py
 ├── utils/
-│   ├── async_runner.py      # Async processing with rate limiting
-│   └── grid_utils.py        # Grid chunking utilities
-└── tests/
-    ├── test_cache_manager.py
-    ├── test_async_runner.py
-    └── test_aggregator.py
+│   ├── grid_utils.py         # Grid splitting
+│   ├── polygon_filter.py     # Country polygon filtering
+│   └── async_runner.py       # Async processing
+└── main.py
 ```
-
-## Integration with Subprojects
-
-This master repository integrates:
-
-1. **geometric_complexity**: Building/road shape complexity analysis
-2. **tags_semantic_analysis**: Tag richness and Shannon diversity (with new chunking support)
-3. **Feature_completeness**: (Future) Completeness metrics
-
-## Caching
-
-The tool caches results at the grid level:
-- **Cache key format**: `{iso}_grid_{row}_{col}_{year}_{entity}_{type}.json`
-- **Benefits**: Second run with same parameters = zero API calls
-- **Management**: Use `--clear-cache` to force re-analysis
-
-## Rate Limiting
-
-Built-in protection against API rate limits:
-- **Semaphore throttling**: Limits concurrent requests (default: 10)
-- **Exponential backoff**: 5s → 10s → 20s on 429 errors
-- **Graceful degradation**: Failed grids logged, processing continues
-- **Dynamic concurrency**: Reduces load if too many rate limits
-
-## Testing
-
-```bash
-# Run all tests
-cd report
-python -m pytest tests/ -v
-
-# Run specific test suite
-python -m pytest tests/test_cache_manager.py -v
-python -m pytest tests/test_async_runner.py -v
-python -m pytest tests/test_aggregator.py -v
-```
-
-**Test Coverage**: 32 tests, all passing ✅
-
-## Examples
-
-### Full Thailand Analysis (2015-2025)
-
-```bash
-python main.py \
-  --countries TH \
-  --years 2015-2025 \
-  --entities building road \
-  --max-concurrent 15
-```
-
-Expected:
-- ~300 grids × 11 years × 2 entities = ~6,600 API calls
-- With cache: Second run = 0 API calls
-- Runtime: ~30-45 minutes (depending on API speed)
-
-### Quick Test
-
-```bash
-python main.py \
-  --countries TH \
-  --years 2024 \
-  --entities building \
-  --test-mode
-```
-
-Expected:
-- ~10-20 grids (larger chunk size)
-- Runtime: ~2-5 minutes
 
 ## Troubleshooting
 
-### API Timeouts
+### Import Errors
 
-If seeing timeouts, reduce concurrency:
-```bash
-python main.py --countries TH --years 2024 --entities building --max-concurrent 5
-```
+If you see "No module named 'geometric_complexity'":
+1. Check packages are installed: `pip list | grep geometric`
+2. Reinstall: `pip install -e /path/to/geometric_complexity/`
+3. See [ADAPTER_FIX.md](ADAPTER_FIX.md) for details
 
-### Rate Limits
+### Timeouts
 
-The tool automatically handles rate limits with backoff. If persistent:
-- Reduce `--max-concurrent` (try 5 or 3)
-- The tool will log rate limit events
+If many grids timeout:
+1. Reduce chunk size: `--chunk-size 15`
+2. Increase timeout: `--api-timeout 60`
+3. Lower concurrency: `--max-concurrent 3`
 
-### Out of Memory
+See [TIMEOUT_GUIDE.md](TIMEOUT_GUIDE.md) for details.
 
-For very large countries, increase chunk size:
-```bash
-python main.py --countries TH --years 2024 --entities building --chunk-size 100
-```
+### Cache Issues
 
-## Future Enhancements
+If cache seems wrong:
+1. Check chunk size matches cached data
+2. Clear cache: `--clear-cache`
+3. See [CACHE_GUIDE.md](CACHE_GUIDE.md) for details
 
-- [ ] Innovation metrics (new tags, top 1%/5% new tags)
-- [ ] Feature completeness integration
-- [ ] Support for more countries
-- [ ] Web dashboard for results
-- [ ] Comparison visualizations
+## Documentation
 
-## Contributing
-
-Subproject modifications (e.g., adding chunking to tags_semantic_analysis) should be committed to their respective repositories with proper git workflow.
+- [ADAPTER_FIX.md](ADAPTER_FIX.md) - How the real adapters work
+- [CACHE_GUIDE.md](CACHE_GUIDE.md) - Cache system explained
+- [LOGGING_GUIDE.md](LOGGING_GUIDE.md) - Understanding log messages
+- [TIMEOUT_GUIDE.md](TIMEOUT_GUIDE.md) - Timeout configuration
 
 ## License
 
-Same as parent OSM analysis projects.
+[Your License Here]
+
+## Contributing
+
+[Contributing guidelines]
+
+## Citation
+
+If you use this tool in research, please cite:
+[Your citation]
