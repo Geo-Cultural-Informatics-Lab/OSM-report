@@ -28,17 +28,20 @@ def suppress_stdout():
     else:
         # Normal mode - suppress stdout
         old_stdout = sys.stdout
+        devnull = None
         try:
-            sys.stdout = open(os.devnull, 'w')
+            devnull = open(os.devnull, 'w')
+            sys.stdout = devnull
             yield
         finally:
-            # Properly close the devnull file and restore stdout
-            if sys.stdout != old_stdout:
+            # Restore stdout first
+            sys.stdout = old_stdout
+            # Then close devnull
+            if devnull is not None:
                 try:
-                    sys.stdout.close()
+                    devnull.close()
                 except:
                     pass
-            sys.stdout = old_stdout
 
 # Import from geometric_complexity package (installed with pip install -e .)
 from geometric_complexity.core import analyzer
@@ -108,13 +111,12 @@ class GeometricComplexityAdapter:
                         resume=False
                     )
                 else:
-                    # For roads - use 'bbox' parameter instead of 'bounds'
+                    # For roads - use 'bbox' parameter and no 'resume' parameter
                     logger.debug(f"Grid {grid_id}: Fetching road geometries from API...")
                     results = analyzer.analyze_region_roads(
                         region_name=grid_id,
                         bbox=bbox,
-                        timestamp=timestamp,
-                        resume=False
+                        timestamp=timestamp
                     )
 
             if results is None or results.empty:

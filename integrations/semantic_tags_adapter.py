@@ -28,17 +28,20 @@ def suppress_stdout():
     else:
         # Normal mode - suppress stdout
         old_stdout = sys.stdout
+        devnull = None
         try:
-            sys.stdout = open(os.devnull, 'w')
+            devnull = open(os.devnull, 'w')
+            sys.stdout = devnull
             yield
         finally:
-            # Properly close the devnull file and restore stdout
-            if sys.stdout != old_stdout:
+            # Restore stdout first
+            sys.stdout = old_stdout
+            # Then close devnull
+            if devnull is not None:
                 try:
-                    sys.stdout.close()
+                    devnull.close()
                 except:
                     pass
-            sys.stdout = old_stdout
 
 # Import from tags_semantic_analysis package (installed with pip install -e .)
 from tags_semantic_analysis.analysis.chunked_analysis import ChunkedTagAnalyzer
