@@ -8,11 +8,25 @@ The orchestrator should add it before importing this module.
 """
 
 import sys
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def suppress_stdout():
+    """Context manager to suppress stdout (print statements)."""
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 # Import from tags_semantic_analysis package (installed with pip install -e .)
 from tags_semantic_analysis.analysis.chunked_analysis import ChunkedTagAnalyzer
@@ -77,14 +91,16 @@ class SemanticTagsAdapter:
             )
 
             # Run chunked analysis
+            # Suppress print() statements from sub-project
             logger.debug(f"{iso_code} {year} {entity_type}: Fetching tag data from API...")
-            results = self.analyzer.run_chunked_analysis(
-                bbox=bbox,
-                entity_type=entity_key,
-                timestamp=timestamp,
-                top_tags_set=None,  # Will identify automatically
-                percentile=95  # Top 5%
-            )
+            with suppress_stdout():
+                results = self.analyzer.run_chunked_analysis(
+                    bbox=bbox,
+                    entity_type=entity_key,
+                    timestamp=timestamp,
+                    top_tags_set=None,  # Will identify automatically
+                    percentile=95  # Top 5%
+                )
 
             entity_count = results.get('entity_count', 0)
             unique_tags = results.get('unique_tags_count', 0)

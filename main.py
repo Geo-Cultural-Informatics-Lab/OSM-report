@@ -52,12 +52,22 @@ def setup_logging(verbose: bool = False):
     )
 
     # Silence sub-project loggers to reduce noise
-    # Only show WARNING and above from these modules
-    logging.getLogger('geometric_complexity').setLevel(logging.WARNING)
-    logging.getLogger('geometrical_complexity_analysis').setLevel(logging.WARNING)
-    logging.getLogger('tags_semantic_analysis').setLevel(logging.WARNING)
-    logging.getLogger('tag_semantic_analysis').setLevel(logging.WARNING)
-    logging.getLogger('ohsome').setLevel(logging.WARNING)
+    # Only show ERROR and above from these modules (WARNING still shows too much)
+    logging.getLogger('geometric_complexity').setLevel(logging.ERROR)
+    logging.getLogger('geometrical_complexity_analysis').setLevel(logging.ERROR)
+    logging.getLogger('tags_semantic_analysis').setLevel(logging.ERROR)
+    logging.getLogger('tag_semantic_analysis').setLevel(logging.ERROR)
+    logging.getLogger('ohsome').setLevel(logging.ERROR)
+
+    # Also silence root logger for sub-modules to catch print() statements
+    # that are converted to logging
+    if not verbose:
+        # Disable all output from these modules unless it's an error
+        for logger_name in ['geometric_complexity', 'geometrical_complexity_analysis',
+                           'tags_semantic_analysis', 'tag_semantic_analysis', 'ohsome']:
+            logger = logging.getLogger(logger_name)
+            logger.propagate = False  # Don't propagate to root logger
+            logger.setLevel(logging.ERROR)
 
     # Keep report-level loggers at configured level
     logging.getLogger('core').setLevel(level)

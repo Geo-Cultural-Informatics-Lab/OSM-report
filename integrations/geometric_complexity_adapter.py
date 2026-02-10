@@ -8,11 +8,25 @@ The orchestrator should add it before importing this module.
 """
 
 import sys
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def suppress_stdout():
+    """Context manager to suppress stdout (print statements)."""
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 # Import from geometric_complexity package (installed with pip install -e .)
 from geometric_complexity.core import analyzer
@@ -69,23 +83,25 @@ class GeometricComplexityAdapter:
             logger.debug(f"Grid {grid_id}: Starting {entity_key} analysis for {year} (bbox: {bbox})")
 
             # Use analyze_region_buildings/roads functions
-            if entity_key == 'buildings':
-                logger.debug(f"Grid {grid_id}: Fetching building geometries from API...")
-                results = analyzer.analyze_region_buildings(
-                    region_name=grid_id,
-                    bounds=bbox,
-                    timestamp=timestamp,
-                    resume=False
-                )
-            else:
-                # For roads
-                logger.debug(f"Grid {grid_id}: Fetching road geometries from API...")
-                results = analyzer.analyze_region_roads(
-                    region_name=grid_id,
-                    bounds=bbox,
-                    timestamp=timestamp,
-                    resume=False
-                )
+            # Suppress print() statements from sub-project
+            with suppress_stdout():
+                if entity_key == 'buildings':
+                    logger.debug(f"Grid {grid_id}: Fetching building geometries from API...")
+                    results = analyzer.analyze_region_buildings(
+                        region_name=grid_id,
+                        bounds=bbox,
+                        timestamp=timestamp,
+                        resume=False
+                    )
+                else:
+                    # For roads
+                    logger.debug(f"Grid {grid_id}: Fetching road geometries from API...")
+                    results = analyzer.analyze_region_roads(
+                        region_name=grid_id,
+                        bounds=bbox,
+                        timestamp=timestamp,
+                        resume=False
+                    )
 
             if results is None or results.empty:
                 logger.warning(f"Grid {grid_id}: No results returned from API")
