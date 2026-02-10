@@ -126,7 +126,12 @@ class GeometricComplexityAdapter:
 
             # Extract mean complexity ratio
             mean_ratio = results['mean_ratio'].iloc[0] if 'mean_ratio' in results.columns else 0.0
-            entity_count = results['building_count'].iloc[0] if 'building_count' in results.columns else 0
+
+            # Get entity count based on entity type
+            if entity_key == 'buildings':
+                entity_count = results['building_count'].iloc[0] if 'building_count' in results.columns else 0
+            else:  # highways/roads
+                entity_count = results['road_count'].iloc[0] if 'road_count' in results.columns else 0
 
             logger.debug(f"Grid {grid_id}: Processed {int(entity_count)} {entity_key}, complexity={mean_ratio:.4f}")
 

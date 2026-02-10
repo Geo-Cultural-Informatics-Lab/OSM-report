@@ -307,9 +307,14 @@ class CountryReportOrchestrator:
         # Process uncached grids
         grids_to_process = [grids[i] for i in indices_to_process]
 
-        # Create processing function
+        # Create processing function with first_grid flag for tag analysis
+        # Tag analysis should run on the first grid in the filtered list
+        first_grid_in_list = grids[0] if grids else None
         def process_single_grid(grid):
-            return self._analyze_grid(iso_code, year, entity, grid)
+            is_first_grid = (first_grid_in_list and
+                           grid['row'] == first_grid_in_list['row'] and
+                           grid['col'] == first_grid_in_list['col'])
+            return self._analyze_grid(iso_code, year, entity, grid, is_first_grid)
 
         # Process async
         grid_ids = [g['chunk_id'] for g in grids_to_process]
@@ -340,7 +345,8 @@ class CountryReportOrchestrator:
         iso_code: str,
         year: int,
         entity: str,
-        grid: Dict
+        grid: Dict,
+        is_first_grid: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single grid (sync function for async runner).
@@ -350,6 +356,7 @@ class CountryReportOrchestrator:
             year: Year
             entity: Entity type
             grid: Grid dictionary
+            is_first_grid: Whether this is the first grid in filtered list (for tag analysis)
 
         Returns:
             Grid analysis result or None
@@ -376,7 +383,7 @@ class CountryReportOrchestrator:
                 result['geometric'] = None
 
             # Semantic tags (whole country, only on first grid to avoid duplication)
-            if self.tags_adapter and grid['row'] == 0 and grid['col'] == 0:
+            if self.tags_adapter and is_first_grid:
                 try:
                     logger.debug(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
                     tags_result = self.tags_adapter.analyze_country(
