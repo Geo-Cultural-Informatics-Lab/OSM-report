@@ -27,13 +27,18 @@ def suppress_stdout():
         yield
     else:
         # Normal mode - suppress stdout
-        with open(os.devnull, 'w') as devnull:
-            old_stdout = sys.stdout
-            sys.stdout = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = open(os.devnull, 'w')
+            yield
+        finally:
+            # Properly close the devnull file and restore stdout
+            if sys.stdout != old_stdout:
+                try:
+                    sys.stdout.close()
+                except:
+                    pass
+            sys.stdout = old_stdout
 
 # Import from tags_semantic_analysis package (installed with pip install -e .)
 from tags_semantic_analysis.analysis.chunked_analysis import ChunkedTagAnalyzer
