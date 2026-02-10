@@ -87,47 +87,39 @@ class CountryReportOrchestrator:
 
         # Initialize adapters
         # Import adapters here (after bootstrap has run) to ensure packages are available
-        from integrations.mock_adapters import MockGeometricAdapter, MockTagsAdapter
-
-        # Try to import real adapters
-        GeometricComplexityAdapter = None
-        SemanticTagsAdapter = None
-
         try:
             from integrations.geometric_complexity_adapter import GeometricComplexityAdapter
-            logger.info("GeometricComplexityAdapter imported successfully")
+            self.geom_adapter = GeometricComplexityAdapter(timeout=api_timeout)
+            logger.info("GeometricComplexityAdapter initialized successfully")
         except ImportError as e:
-            logger.warning(f"Could not import GeometricComplexityAdapter: {e}")
+            logger.error(f"FATAL: Could not import GeometricComplexityAdapter: {e}")
+            raise RuntimeError(
+                "GeometricComplexityAdapter is required but could not be imported. "
+                "Please ensure all dependencies are installed."
+            ) from e
+        except Exception as e:
+            logger.error(f"FATAL: GeometricComplexityAdapter initialization failed: {e}")
+            raise RuntimeError(
+                "GeometricComplexityAdapter is required but failed to initialize. "
+                "Please check your configuration and dependencies."
+            ) from e
 
         try:
             from integrations.semantic_tags_adapter import SemanticTagsAdapter
-            logger.info("SemanticTagsAdapter imported successfully")
+            self.tags_adapter = SemanticTagsAdapter(chunk_size_km=chunk_size_km, timeout=api_timeout)
+            logger.info("SemanticTagsAdapter initialized successfully")
         except ImportError as e:
-            logger.warning(f"Could not import SemanticTagsAdapter: {e}")
-
-        # Try real geometric adapter
-        if GeometricComplexityAdapter:
-            try:
-                self.geom_adapter = GeometricComplexityAdapter(timeout=api_timeout)
-                logger.info("Using REAL GeometricComplexityAdapter")
-            except Exception as e:
-                logger.warning(f"Real GeometricComplexityAdapter failed, using mock: {e}")
-                self.geom_adapter = MockGeometricAdapter()
-        else:
-            logger.warning("GeometricComplexityAdapter not imported, using mock")
-            self.geom_adapter = MockGeometricAdapter()
-
-        # Try real tags adapter
-        if SemanticTagsAdapter:
-            try:
-                self.tags_adapter = SemanticTagsAdapter(chunk_size_km=chunk_size_km, timeout=api_timeout)
-                logger.info("Using REAL SemanticTagsAdapter")
-            except Exception as e:
-                logger.warning(f"Real SemanticTagsAdapter failed, using mock: {e}")
-                self.tags_adapter = MockTagsAdapter()
-        else:
-            logger.warning("SemanticTagsAdapter not imported, using mock")
-            self.tags_adapter = MockTagsAdapter()
+            logger.error(f"FATAL: Could not import SemanticTagsAdapter: {e}")
+            raise RuntimeError(
+                "SemanticTagsAdapter is required but could not be imported. "
+                "Please ensure all dependencies are installed."
+            ) from e
+        except Exception as e:
+            logger.error(f"FATAL: SemanticTagsAdapter initialization failed: {e}")
+            raise RuntimeError(
+                "SemanticTagsAdapter is required but failed to initialize. "
+                "Please check your configuration and dependencies."
+            ) from e
 
         self.completeness_adapter = CompletenessAdapter()
 

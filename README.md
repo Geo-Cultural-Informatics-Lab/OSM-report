@@ -13,24 +13,38 @@ Unified report generator for OpenStreetMap country-level quality metrics, integr
 
 ## Dependencies
 
-This project requires two companion packages:
-- `geometric_complexity`: Building/road geometry analysis
-- `tags_semantic_analysis`: OSM tag semantic analysis
+**REQUIRED:** This project requires two companion packages to function:
+- `geometric_complexity`: Building/road geometry analysis (REQUIRED - no mock fallback)
+- `tags_semantic_analysis`: OSM tag semantic analysis (REQUIRED - no mock fallback)
+
+**Note:** As of 2026-02-10, mock adapters have been removed. The system will fail immediately if these dependencies are not installed, ensuring 100% real data in every run.
 
 ## Installation
 
-### Option 1: Development Setup (Editable Install)
+### Option 1: Development Setup (Editable Install - Recommended)
 
+Assuming the directory structure is:
+```
+OSM/
+├── geometric_complexity/
+├── tags_semantic_analysis/
+└── report/
+```
+
+From the `report` directory:
 ```bash
-# Clone all repositories
-git clone https://github.com/yourusername/geometric_complexity.git
-git clone https://github.com/yourusername/tags_semantic_analysis.git
-git clone https://github.com/yourusername/osm-report.git
+cd C:\Users\user\code\OSM\report
+pip install -e ../geometric_complexity
+pip install -e ../tags_semantic_analysis
+pip install -r requirements.txt
+```
 
-# Install dependencies as editable packages
-cd geometric_complexity && pip install -e . && cd ..
-cd tags_semantic_analysis && pip install -e . && cd ..
-cd osm-report
+Or from the OSM root directory:
+```bash
+cd C:\Users\user\code\OSM
+pip install -e geometric_complexity
+pip install -e tags_semantic_analysis
+cd report
 pip install -r requirements.txt
 ```
 

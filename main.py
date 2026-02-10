@@ -26,8 +26,17 @@ try:
     if pth_tags.exists():
         exec(pth_tags.read_text())
 except Exception as e:
-    # If loading fails, adapters will fall back to mock
-    logging.warning(f"Could not load editable packages: {e}")
+    # If loading fails, the orchestrator will raise an error
+    logging.error(f"Could not load editable packages: {e}")
+    logging.error("Please ensure all dependencies are installed correctly")
+    raise RuntimeError(
+        "Failed to load required packages. Please run:\n"
+        "  pip install -e ../geometric_complexity\n"
+        "  pip install -e ../tags_semantic_analysis\n"
+        "from the report directory, or from the OSM root directory run:\n"
+        "  pip install -e geometric_complexity\n"
+        "  pip install -e tags_semantic_analysis"
+    ) from e
 
 from core.orchestrator import CountryReportOrchestrator
 from utils.async_runner import run_async
