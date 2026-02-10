@@ -43,6 +43,7 @@ def suppress_stdout():
                 except:
                     pass
 
+
 # Import from geometric_complexity package (installed with pip install -e .)
 from geometric_complexity.core import analyzer
 from geometric_complexity.core.ohsome_client import OhsomeClient

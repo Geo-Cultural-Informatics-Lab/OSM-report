@@ -51,15 +51,16 @@ class MetricsAggregator:
             return self._empty_metrics(iso_code, year, entity_type)
 
         # Aggregate geometric complexity (weighted mean)
+        # Use 'or {}' to handle None values from failed geometric analysis
         total_entities = sum(
-            r.get('geometric', {}).get('entity_count', 0)
+            (r.get('geometric') or {}).get('entity_count', 0)
             for r in valid_results
         )
 
         if total_entities > 0:
             weighted_complexity = sum(
-                r.get('geometric', {}).get('geometric_complexity', 0) *
-                r.get('geometric', {}).get('entity_count', 0)
+                (r.get('geometric') or {}).get('geometric_complexity', 0) *
+                (r.get('geometric') or {}).get('entity_count', 0)
                 for r in valid_results
             ) / total_entities
         else:
@@ -67,9 +68,9 @@ class MetricsAggregator:
 
         # Get tag metrics from first valid result (already aggregated)
         # The semantic adapter should have aggregated across chunks
-        tag_metrics = valid_results[0].get('tags', {})
+        tag_metrics = valid_results[0].get('tags') or {}
 
-        logger.info(
+        logger.debug(
             f"{iso_code} {year} {entity_type}: Aggregated {len(valid_results)} grids, "
             f"total {total_entities:,} entities, complexity={weighted_complexity:.4f}"
         )
@@ -112,7 +113,8 @@ class MetricsAggregator:
 
         # Get tag details from first valid result
         # (semantic adapter already aggregated)
-        tag_details = valid_results[0].get('tags', {}).get('tag_details', [])
+        tags_data = valid_results[0].get('tags') or {}
+        tag_details = tags_data.get('tag_details', [])
 
         # Format for CSV
         rows = []

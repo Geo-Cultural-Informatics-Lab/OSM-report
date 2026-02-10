@@ -38,36 +38,27 @@ except Exception as e:
         "  pip install -e tags_semantic_analysis"
     ) from e
 
-from core.orchestrator import CountryReportOrchestrator
-from utils.async_runner import run_async
-
 
 def setup_logging(verbose: bool = False):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
+
+    # Configure root logger with DEBUG level so it doesn't filter messages
+    # Individual loggers will control their own levels
     logging.basicConfig(
-        level=level,
+        level=logging.DEBUG,  # Root logger accepts all levels
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
     # Silence sub-project loggers to reduce noise
-    # Only show ERROR and above from these modules (WARNING still shows too much)
-    logging.getLogger('geometric_complexity').setLevel(logging.ERROR)
-    logging.getLogger('geometrical_complexity_analysis').setLevel(logging.ERROR)
-    logging.getLogger('tags_semantic_analysis').setLevel(logging.ERROR)
-    logging.getLogger('tag_semantic_analysis').setLevel(logging.ERROR)
-    logging.getLogger('ohsome').setLevel(logging.ERROR)
-
-    # Also silence root logger for sub-modules to catch print() statements
-    # that are converted to logging
-    if not verbose:
-        # Disable all output from these modules unless it's an error
-        for logger_name in ['geometric_complexity', 'geometrical_complexity_analysis',
-                           'tags_semantic_analysis', 'tag_semantic_analysis', 'ohsome']:
-            logger = logging.getLogger(logger_name)
-            logger.propagate = False  # Don't propagate to root logger
-            logger.setLevel(logging.ERROR)
+    # IMPORTANT: Set propagate=False BEFORE importing to prevent messages from reaching root logger
+    for logger_name in ['geometric_complexity', 'geometrical_complexity_analysis',
+                       'tags_semantic_analysis', 'tag_semantic_analysis', 'ohsome',
+                       'urllib3', 'urllib3.connectionpool', 'asyncio']:
+        sub_logger = logging.getLogger(logger_name)
+        sub_logger.propagate = False  # Don't propagate to root logger
+        sub_logger.setLevel(logging.ERROR)  # Only show errors from these modules
 
     # Keep report-level loggers at configured level
     logging.getLogger('core').setLevel(level)
@@ -194,6 +185,9 @@ def parse_years(years_str: str) -> list:
 
 async def main_async(args):
     """Main async function."""
+    # Import orchestrator here (after logging is configured)
+    from core.orchestrator import CountryReportOrchestrator
+
     # Parse years
     years = parse_years(args.years)
 
@@ -271,9 +265,13 @@ async def main_async(args):
 
 def main():
     """Main entry point."""
+    # Import run_async here (lightweight utility, no heavy imports)
+    from utils.async_runner import run_async
+
+    # Parse args first to get verbosity level (before imports)
     args = parse_args()
 
-    # Setup logging
+    # Setup logging BEFORE importing orchestrator to suppress sub-project loggers
     setup_logging(args.verbose)
 
     # Print header
