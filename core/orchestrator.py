@@ -94,7 +94,7 @@ class CountryReportOrchestrator:
         try:
             from integrations.geometric_complexity_adapter import GeometricComplexityAdapter
             self.geom_adapter = GeometricComplexityAdapter(timeout=api_timeout)
-            logger.info("GeometricComplexityAdapter initialized successfully")
+            logger.debug("GeometricComplexityAdapter initialized successfully")
         except ImportError as e:
             logger.error(f"FATAL: Could not import GeometricComplexityAdapter: {e}")
             raise RuntimeError(
@@ -111,7 +111,7 @@ class CountryReportOrchestrator:
         try:
             from integrations.semantic_tags_adapter import SemanticTagsAdapter
             self.tags_adapter = SemanticTagsAdapter(chunk_size_km=chunk_size_km, timeout=api_timeout)
-            logger.info("SemanticTagsAdapter initialized successfully")
+            logger.debug("SemanticTagsAdapter initialized successfully")
         except ImportError as e:
             logger.error(f"FATAL: Could not import SemanticTagsAdapter: {e}")
             raise RuntimeError(
@@ -127,7 +127,7 @@ class CountryReportOrchestrator:
 
         self.completeness_adapter = CompletenessAdapter()
 
-        logger.info(f"Orchestrator initialized: cache={cache_dir}, results={results_dir}")
+        logger.debug(f"Orchestrator initialized: cache={cache_dir}, results={results_dir}")
 
     async def generate_country_report(
         self,
@@ -165,8 +165,10 @@ class CountryReportOrchestrator:
 
         for year in years:
             for entity in entities:
+                # Update progress bar description - this is the main status indicator
                 pbar.set_description(f"[{iso_code}] {year} {entity}")
-                logger.info(f"Processing {iso_code} {year} {entity}")
+                # Use print instead of logger to avoid timestamp clutter
+                print(f"\n[{iso_code}] Starting {year} {entity}...")
 
                 try:
                     # Process year/entity combination
@@ -230,12 +232,12 @@ class CountryReportOrchestrator:
             chunk_size_km=self.chunk_size_km
         )
 
-        logger.info(f"{iso_code} {year} {entity}: Split into {len(grids)} grids")
+        logger.debug(f"{iso_code} {year} {entity}: Split into {len(grids)} grids")
 
         # Filter grids to only those that intersect with country polygon
         grids = self.polygon_filter.filter_grids(grids, iso_code)
 
-        logger.info(f"{iso_code} {year} {entity}: Processing {len(grids)} grids after polygon filtering")
+        logger.debug(f"{iso_code} {year} {entity}: Processing {len(grids)} grids after polygon filtering")
 
         # Process grids (check cache first, then analyze)
         grid_results = await self._process_grids_with_cache(
@@ -294,10 +296,10 @@ class CountryReportOrchestrator:
         ]
 
         if not indices_to_process:
-            logger.info("All grids cached, no API calls needed")
+            logger.debug("All grids cached, no API calls needed")
             return results
 
-        logger.info(
+        logger.debug(
             f"Processing {len(indices_to_process)}/{len(grids)} grids "
             f"(rest cached)"
         )
@@ -376,7 +378,7 @@ class CountryReportOrchestrator:
             # Semantic tags (whole country, only on first grid to avoid duplication)
             if self.tags_adapter and grid['row'] == 0 and grid['col'] == 0:
                 try:
-                    logger.info(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
+                    logger.debug(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
                     tags_result = self.tags_adapter.analyze_country(
                         country_bbox, entity, year, iso_code
                     )
@@ -432,7 +434,7 @@ class CountryReportOrchestrator:
 
         # Check if file exists
         if filepath.exists():
-            logger.info(f"Existing CSV found, merging data: {filepath}")
+            logger.debug(f"Existing CSV found, merging data: {filepath}")
             existing_df = pd.read_csv(filepath)
 
             # Merge: new data overwrites existing for same (country, year, entity)
@@ -454,16 +456,16 @@ class CountryReportOrchestrator:
             combined_df = combined_df.sort_values(['country', 'year', 'entity'])
             combined_df = combined_df.reset_index(drop=True)
 
-            logger.info(
+            logger.debug(
                 f"Merged: {len(existing_df)} existing + {len(new_df)} new = "
                 f"{len(combined_df)} total rows"
             )
         else:
             combined_df = new_df
-            logger.info(f"Creating new CSV: {filepath}")
+            logger.debug(f"Creating new CSV: {filepath}")
 
         combined_df.to_csv(filepath, index=False)
-        logger.info(f"Wrote primary CSV: {filepath} ({len(combined_df)} rows)")
+        logger.debug(f"Wrote primary CSV: {filepath} ({len(combined_df)} rows)")
         return filepath
 
     def _write_detail_csv(
@@ -483,7 +485,7 @@ class CountryReportOrchestrator:
 
         # Check if file exists
         if filepath.exists():
-            logger.info(f"Existing tag detail CSV found, merging: {filepath}")
+            logger.debug(f"Existing tag detail CSV found, merging: {filepath}")
             existing_df = pd.read_csv(filepath)
 
             # Merge: new data overwrites existing for same keys
@@ -505,14 +507,14 @@ class CountryReportOrchestrator:
             )
             combined_df = combined_df.reset_index(drop=True)
 
-            logger.info(
+            logger.debug(
                 f"Merged tags: {len(existing_df)} existing + {len(new_df)} new = "
                 f"{len(combined_df)} total rows"
             )
         else:
             combined_df = new_df
-            logger.info(f"Creating new tag detail CSV: {filepath}")
+            logger.debug(f"Creating new tag detail CSV: {filepath}")
 
         combined_df.to_csv(filepath, index=False)
-        logger.info(f"Wrote detail CSV: {filepath} ({len(combined_df)} rows)")
+        logger.debug(f"Wrote detail CSV: {filepath} ({len(combined_df)} rows)")
         return filepath

@@ -60,7 +60,7 @@ class GeometricComplexityAdapter:
         # Suppress stdout during initialization to avoid print() statements
         with suppress_stdout():
             self.client = OhsomeClient(timeout=timeout)
-        logger.info(f"GeometricComplexityAdapter initialized with {timeout}s timeout")
+        logger.debug(f"GeometricComplexityAdapter initialized with {timeout}s timeout")
 
     def analyze_grid(
         self,

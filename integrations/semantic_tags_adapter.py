@@ -66,7 +66,7 @@ class SemanticTagsAdapter:
                 chunk_size_km=chunk_size_km
             )
 
-        logger.info(f"SemanticTagsAdapter initialized with {timeout}s timeout")
+        logger.debug(f"SemanticTagsAdapter initialized with {timeout}s timeout")
 
     def analyze_country(
         self,
