@@ -9,6 +9,31 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 import hashlib
+import numpy as np
+
+
+def _convert_numpy_types(obj):
+    """
+    Recursively convert numpy types to native Python types for JSON serialization.
+
+    Args:
+        obj: Object to convert
+
+    Returns:
+        Converted object with native Python types
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: _convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_numpy_types(item) for item in obj]
+    else:
+        return obj
 
 
 class CacheManager:
@@ -126,10 +151,17 @@ class CacheManager:
         cache_path = self._get_cache_path(cache_key)
 
         try:
+            # Convert numpy types to native Python types before serializing
+            serializable_data = _convert_numpy_types(data)
             with open(cache_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
-        except IOError as e:
-            print(f"Warning: Failed to write cache {cache_key}: {e}")
+                json.dump(serializable_data, f, indent=2)
+        except (IOError, TypeError) as e:
+            # Try using default converter as fallback
+            try:
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2, default=lambda o: int(o) if isinstance(o, np.integer) else float(o) if isinstance(o, np.floating) else str(o))
+            except Exception as e2:
+                print(f"Warning: Failed to write cache {cache_key}: {e}")
 
     def exists(
         self,
