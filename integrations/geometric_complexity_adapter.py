@@ -20,13 +20,20 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def suppress_stdout():
     """Context manager to suppress stdout (print statements)."""
-    with open(os.devnull, 'w') as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
+    # Check if verbose logging is enabled by checking root logger level
+    root_logger = logging.getLogger()
+    if root_logger.level <= logging.DEBUG:
+        # Verbose mode - don't suppress
+        yield
+    else:
+        # Normal mode - suppress stdout
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
 
 # Import from geometric_complexity package (installed with pip install -e .)
 from geometric_complexity.core import analyzer
@@ -45,7 +52,9 @@ class GeometricComplexityAdapter:
         Args:
             timeout: API request timeout in seconds (default: 30)
         """
-        self.client = OhsomeClient(timeout=timeout)
+        # Suppress stdout during initialization to avoid print() statements
+        with suppress_stdout():
+            self.client = OhsomeClient(timeout=timeout)
         logger.info(f"GeometricComplexityAdapter initialized with {timeout}s timeout")
 
     def analyze_grid(
