@@ -51,6 +51,19 @@ def setup_logging(verbose: bool = False):
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
+    # Silence sub-project loggers to reduce noise
+    # Only show WARNING and above from these modules
+    logging.getLogger('geometric_complexity').setLevel(logging.WARNING)
+    logging.getLogger('geometrical_complexity_analysis').setLevel(logging.WARNING)
+    logging.getLogger('tags_semantic_analysis').setLevel(logging.WARNING)
+    logging.getLogger('tag_semantic_analysis').setLevel(logging.WARNING)
+    logging.getLogger('ohsome').setLevel(logging.WARNING)
+
+    # Keep report-level loggers at configured level
+    logging.getLogger('core').setLevel(level)
+    logging.getLogger('utils').setLevel(level)
+    logging.getLogger('integrations').setLevel(level)
+
 
 def parse_args():
     """Parse command line arguments."""

@@ -66,11 +66,11 @@ class GeometricComplexityAdapter:
             # Format timestamp
             timestamp = f"{year}-01-01"
 
-            logger.info(f"Grid {grid_id}: Starting {entity_key} analysis for {year} (bbox: {bbox})")
+            logger.debug(f"Grid {grid_id}: Starting {entity_key} analysis for {year} (bbox: {bbox})")
 
             # Use analyze_region_buildings/roads functions
             if entity_key == 'buildings':
-                logger.info(f"Grid {grid_id}: Fetching building geometries from API...")
+                logger.debug(f"Grid {grid_id}: Fetching building geometries from API...")
                 results = analyzer.analyze_region_buildings(
                     region_name=grid_id,
                     bounds=bbox,
@@ -79,7 +79,7 @@ class GeometricComplexityAdapter:
                 )
             else:
                 # For roads
-                logger.info(f"Grid {grid_id}: Fetching road geometries from API...")
+                logger.debug(f"Grid {grid_id}: Fetching road geometries from API...")
                 results = analyzer.analyze_region_roads(
                     region_name=grid_id,
                     bounds=bbox,
@@ -95,7 +95,7 @@ class GeometricComplexityAdapter:
             mean_ratio = results['mean_ratio'].iloc[0] if 'mean_ratio' in results.columns else 0.0
             entity_count = results['building_count'].iloc[0] if 'building_count' in results.columns else 0
 
-            logger.info(f"Grid {grid_id}: Processed {int(entity_count)} {entity_key}, complexity={mean_ratio:.4f}")
+            logger.debug(f"Grid {grid_id}: Processed {int(entity_count)} {entity_key}, complexity={mean_ratio:.4f}")
 
             return {
                 'grid_id': grid_id,

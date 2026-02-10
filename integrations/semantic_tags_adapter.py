@@ -72,12 +72,12 @@ class SemanticTagsAdapter:
             # Format timestamp
             timestamp = f"{year}-01-01"
 
-            logger.info(
+            logger.debug(
                 f"{iso_code} {year} {entity_type}: Starting tag semantic analysis (bbox: {bbox})"
             )
 
             # Run chunked analysis
-            logger.info(f"{iso_code} {year} {entity_type}: Fetching tag data from API...")
+            logger.debug(f"{iso_code} {year} {entity_type}: Fetching tag data from API...")
             results = self.analyzer.run_chunked_analysis(
                 bbox=bbox,
                 entity_type=entity_key,
@@ -90,7 +90,7 @@ class SemanticTagsAdapter:
             unique_tags = results.get('unique_tags_count', 0)
             richness_mean = results.get('richness_mean', 0.0)
 
-            logger.info(
+            logger.debug(
                 f"{iso_code} {year} {entity_type}: Processed {entity_count} entities, "
                 f"{unique_tags} unique tags, richness={richness_mean:.2f}"
             )
