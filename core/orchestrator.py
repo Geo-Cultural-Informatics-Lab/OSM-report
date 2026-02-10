@@ -22,8 +22,12 @@ geometric_complexity_path = str(Path(__file__).parent.parent.parent / "geometric
 tags_semantic_path = str(Path(__file__).parent.parent.parent / "tags_semantic_analysis")
 
 # Add all paths: report first, then subprojects
-if report_path not in sys.path:
-    sys.path.insert(0, report_path)
+# IMPORTANT: Remove report_path if it exists anywhere, then insert at position 0
+# This is necessary because site-packages can be inserted before our path
+while report_path in sys.path:
+    sys.path.remove(report_path)
+sys.path.insert(0, report_path)
+
 if Path(geometric_complexity_path).exists() and geometric_complexity_path not in sys.path:
     sys.path.insert(1, geometric_complexity_path)
 if Path(tags_semantic_path).exists() and tags_semantic_path not in sys.path:
