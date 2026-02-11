@@ -385,7 +385,7 @@ class CountryReportOrchestrator:
             # Semantic tags (whole country, only on first grid to avoid duplication)
             if self.tags_adapter and is_first_grid:
                 try:
-                    logger.debug(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
+                    logger.info(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
                     tags_result = self.tags_adapter.analyze_country(
                         country_bbox, entity, year, iso_code
                     )
@@ -442,7 +442,10 @@ class CountryReportOrchestrator:
         # Check if file exists
         if filepath.exists():
             logger.debug(f"Existing CSV found, merging data: {filepath}")
-            existing_df = pd.read_csv(filepath)
+            try:
+                existing_df = pd.read_csv(filepath)
+            except Exception as e:
+                logger.error(f"Error merging CSV: {e}")
 
             # Merge: new data overwrites existing for same (country, year, entity)
             # Remove rows from existing that match new data
@@ -493,7 +496,11 @@ class CountryReportOrchestrator:
         # Check if file exists
         if filepath.exists():
             logger.debug(f"Existing tag detail CSV found, merging: {filepath}")
-            existing_df = pd.read_csv(filepath)
+            try:
+                existing_df = pd.read_csv(filepath)
+            except Exception as e:
+                logger.error(f"Error merging CSV: {e}")
+                existing_df = pd.DataFrame()
 
             # Merge: new data overwrites existing for same keys
             merge_keys = ['country', 'year', 'entity', 'tag_key']
