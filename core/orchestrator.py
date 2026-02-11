@@ -308,8 +308,8 @@ class CountryReportOrchestrator:
         grids_to_process = [grids[i] for i in indices_to_process]
 
         # Create processing function with first_grid flag for tag analysis
-        # Tag analysis should run on the first grid in the filtered list
-        first_grid_in_list = grids[0] if grids else None
+        # Tag analysis should run on the first grid being processed (not cached)
+        first_grid_in_list = grids_to_process[0] if grids_to_process else None
         def process_single_grid(grid):
             is_first_grid = (first_grid_in_list and
                            grid['row'] == first_grid_in_list['row'] and
