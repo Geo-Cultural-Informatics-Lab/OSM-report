@@ -53,8 +53,12 @@ def setup_logging(verbose: bool = False):
 
     # Silence sub-project loggers to reduce noise
     # IMPORTANT: Set propagate=False BEFORE importing to prevent messages from reaching root logger
-    for logger_name in ['geometric_complexity', 'geometrical_complexity_analysis',
-                       'tags_semantic_analysis', 'tag_semantic_analysis', 'ohsome',
+    for logger_name in [
+                        'geometric_complexity',
+                        'geometrical_complexity_analysis',
+                        'tags_semantic_analysis',
+                        'tag_semantic_analysis',
+                        'ohsome',
                        'urllib3', 'urllib3.connectionpool', 'asyncio']:
         sub_logger = logging.getLogger(logger_name)
         sub_logger.propagate = False  # Don't propagate to root logger

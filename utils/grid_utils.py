@@ -95,6 +95,7 @@ def get_country_bbox(iso_code: str) -> str:
     country_bboxes = {
         'TH': '97.3,5.6,105.6,20.5',  # Thailand
         'MM': '92.2,9.8,101.2,28.5',  # Myanmar/Burma
+        'IL': '31.806021,29.688941,37.636742,33.521382'
     }
 
     if iso_code not in country_bboxes:
