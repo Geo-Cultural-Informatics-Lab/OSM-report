@@ -93,9 +93,13 @@ def get_country_bbox(iso_code: str) -> str:
         Bounding box string "min_lon,min_lat,max_lon,max_lat"
     """
     country_bboxes = {
-        'TH': '97.3,5.6,105.6,20.5',  # Thailand
-        'MM': '92.2,9.8,101.2,28.5',  # Myanmar/Burma
-        'IL': '31.806021,29.688941,37.636742,33.521382'
+        'TH': '97.3,5.6,105.6,20.5',    # Thailand
+        'MM': '92.2,9.8,101.2,28.5',    # Myanmar/Burma
+        'IL': '31.806021,29.688941,37.636742,33.521382',  # Israel
+        'ID': '95.0,-11.0,141.0,6.0',   # Indonesia (archipelago: Sumatra to Papua)
+        'PH': '116.9,4.6,126.6,21.1',   # Philippines
+        'PG': '140.8,-11.7,155.9,-1.3', # Papua New Guinea
+        'MY': '99.6,0.8,119.3,7.4',     # Malaysia (Peninsular + East Malaysia/Borneo)
     }
 
     if iso_code not in country_bboxes:
