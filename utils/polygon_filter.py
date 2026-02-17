@@ -27,10 +27,12 @@ class PolygonFilter:
             provinces_geojson_path: Path to provinces GeoJSON file (optional).
         """
         if geojson_path is None:
-            # Try to find in geometric_complexity project
+            # Try to find in geometric_complexity project (works on both Windows and Linux)
             possible_paths = [
+                # Relative to this file: report/utils/ -> report/ -> OSM/ -> geometric_complexity/
                 Path(__file__).parent.parent.parent / "geometric_complexity" / "countries_polygons" / "World_Countries.geojson",
-                Path("C:/Users/user/code/OSM/geometric_complexity/countries_polygons/World_Countries.geojson"),
+                # Linux: OSM-geometrical_complexity sibling directory
+                Path(__file__).parent.parent.parent / "OSM-geometrical_complexity" / "countries_polygons" / "World_Countries.geojson",
             ]
             for path in possible_paths:
                 if path.exists():
