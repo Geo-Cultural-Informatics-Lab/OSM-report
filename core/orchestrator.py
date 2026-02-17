@@ -63,7 +63,8 @@ class CountryReportOrchestrator:
         max_concurrent: int = 10,
         api_timeout: int = 30,
         enabled_modules: set = None,
-        provinces_geojson_path: str = None
+        provinces_geojson_path: str = None,   # legacy single-country path (kept for compat)
+        provinces_geojson_paths: dict = None  # preferred: dict of ISO -> path
     ):
         """
         Initialize orchestrator.
@@ -75,7 +76,8 @@ class CountryReportOrchestrator:
             max_concurrent: Max concurrent requests
             api_timeout: API request timeout in seconds (default: 30)
             enabled_modules: Set of enabled modules (default: {'geometric', 'tags'})
-            provinces_geojson_path: Path to provinces GeoJSON for province-level filtering (optional)
+            provinces_geojson_path: Legacy single provinces GeoJSON path (Thailand only)
+            provinces_geojson_paths: Dict mapping ISO code -> GeoJSON path for multiple countries
         """
         self.cache_dir = Path(cache_dir)
         self.results_dir = Path(results_dir)
@@ -85,6 +87,11 @@ class CountryReportOrchestrator:
 
         # Default to all modules if not specified
         self.enabled_modules = enabled_modules if enabled_modules else {'geometric', 'tags'}
+
+        # Build provinces path dict (merge legacy single path into dict)
+        self.provinces_geojson_paths = provinces_geojson_paths or {}
+        if provinces_geojson_path and 'TH' not in self.provinces_geojson_paths:
+            self.provinces_geojson_paths['TH'] = provinces_geojson_path
 
         # Create directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -96,7 +103,7 @@ class CountryReportOrchestrator:
         self.async_runner = AsyncGridRunner(max_concurrent=max_concurrent)
         self.polygon_filter = PolygonFilter(
             geojson_path=None,  # Auto-finds World_Countries.geojson
-            provinces_geojson_path=provinces_geojson_path
+            provinces_geojson_paths=self.provinces_geojson_paths  # multi-country dict
         )
 
         # Initialize adapters

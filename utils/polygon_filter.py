@@ -17,14 +17,21 @@ logger = logging.getLogger(__name__)
 class PolygonFilter:
     """Filter grids by country polygon intersection."""
 
-    def __init__(self, geojson_path: Optional[str] = None, provinces_geojson_path: Optional[str] = None):
+    def __init__(
+        self,
+        geojson_path: Optional[str] = None,
+        provinces_geojson_path: Optional[str] = None,   # legacy: single country (TH)
+        provinces_geojson_paths: Optional[dict] = None  # preferred: dict ISO -> path
+    ):
         """
         Initialize polygon filter.
 
         Args:
             geojson_path: Path to World_Countries.geojson file.
                          If None, tries to find it in geometric_complexity project.
-            provinces_geojson_path: Path to provinces GeoJSON file (optional).
+            provinces_geojson_path: Legacy single provinces GeoJSON path (Thailand only).
+            provinces_geojson_paths: Dict mapping ISO code -> GeoJSON path, e.g.
+                {'TH': '/data/th.geojson', 'ID': '/data/id.geojson'}
         """
         if geojson_path is None:
             # Try to find in geometric_complexity project (works on both Windows and Linux)
@@ -54,19 +61,29 @@ class PolygonFilter:
             self.gdf = None
             self.enabled = False
 
-        # Load provinces if path provided
-        if provinces_geojson_path and Path(provinces_geojson_path).exists():
-            try:
-                self.provinces_gdf = gpd.read_file(provinces_geojson_path)
-                self.provinces_enabled = True
-                logger.info(f"Loaded {len(self.provinces_gdf)} provinces from {provinces_geojson_path}")
-            except Exception as e:
-                logger.warning(f"Failed to load provinces: {e}, province filtering disabled")
-                self.provinces_gdf = None
-                self.provinces_enabled = False
-        else:
-            self.provinces_gdf = None
-            self.provinces_enabled = False
+        # Build a combined dict of ISO -> GeoJSON path from both legacy and new params
+        all_province_paths = {}
+        if provinces_geojson_paths:
+            all_province_paths.update(provinces_geojson_paths)
+        if provinces_geojson_path and 'TH' not in all_province_paths:
+            all_province_paths['TH'] = provinces_geojson_path
+
+        # Load each country's province GeoJSON into a per-country GeoDataFrame dict
+        # self.provinces_gdfs: dict of ISO -> GeoDataFrame
+        self.provinces_gdfs = {}
+        for iso, path in all_province_paths.items():
+            if path and Path(path).exists():
+                try:
+                    gdf = gpd.read_file(path)
+                    self.provinces_gdfs[iso] = gdf
+                    logger.info(f"Loaded {len(gdf)} admin boundaries for {iso} from {path}")
+                except Exception as e:
+                    logger.warning(f"Failed to load provinces for {iso}: {e}")
+
+        self.provinces_enabled = len(self.provinces_gdfs) > 0
+
+        # Legacy single-GDF attribute: use TH if available (backward compat for province_analyzer)
+        self.provinces_gdf = self.provinces_gdfs.get('TH')
 
     def get_country_polygon(self, iso_code: str):
         """
@@ -110,20 +127,26 @@ class PolygonFilter:
             return None
 
         try:
-            # Try matching by different code formats
-            matches = self.provinces_gdf[
-                (self.provinces_gdf['shapeISO'] == province_code) |
-                (self.provinces_gdf['shapeID'] == province_code) |
-                (self.provinces_gdf['shapeName'].str.contains(province_code, case=False, na=False, regex=False))
+            # Look up GeoDataFrame for the specific country
+            gdf = self.provinces_gdfs.get(country_iso)
+            if gdf is None:
+                logger.warning(f"No province boundaries loaded for country {country_iso}")
+                return None
+
+            # Try matching by different code formats (geoBoundaries uses shapeISO, shapeID, shapeName)
+            matches = gdf[
+                (gdf['shapeISO'] == province_code) |
+                (gdf['shapeID'] == province_code) |
+                (gdf['shapeName'].str.contains(province_code, case=False, na=False, regex=False))
             ]
 
             if len(matches) == 0:
-                logger.warning(f"Province {province_code} not found in GeoJSON")
+                logger.warning(f"Province {province_code} not found in {country_iso} GeoJSON")
                 return None
 
             return matches.iloc[0].geometry
         except Exception as e:
-            logger.error(f"Error getting province polygon for {province_code}: {e}")
+            logger.error(f"Error getting province polygon for {province_code} ({country_iso}): {e}")
             return None
 
     def filter_grids_by_province(

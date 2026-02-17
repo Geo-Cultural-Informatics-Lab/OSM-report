@@ -180,9 +180,23 @@ Examples:
     return parser.parse_args()
 
 
-# Province data paths
-PROVINCES_GEOJSON = Path(__file__).parent / 'data' / 'thailand_provinces_admin4.geojson'
-PROVINCES_GEOJSON_DETAILED = Path(__file__).parent / 'data' / 'thailand_provinces_geoboundaries.geojson'
+# Province/admin boundary data paths per country
+# Filenames follow geoBoundaries naming: geoBoundaries-{ISO3}-ADM1.geojson
+# ISO2 -> ISO3 mapping for geoBoundaries filenames
+DATA_DIR = Path(__file__).parent / 'data'
+
+COUNTRY_PROVINCES_GEOJSON = {
+    'TH': DATA_DIR / 'thailand_provinces_geoboundaries.geojson',  # legacy name kept
+    'ID': DATA_DIR / 'geoBoundaries-IDN-ADM1.geojson',
+    'MY': DATA_DIR / 'geoBoundaries-MYS-ADM1.geojson',
+    'PH': DATA_DIR / 'geoBoundaries-PHL-ADM1.geojson',
+    'PG': DATA_DIR / 'geoBoundaries-PNG-ADM1.geojson',
+    'MM': DATA_DIR / 'geoBoundaries-MMR-ADM1.geojson',
+}
+
+# Keep legacy constant for backward compatibility
+PROVINCES_GEOJSON = DATA_DIR / 'thailand_provinces_admin4.geojson'
+PROVINCES_GEOJSON_DETAILED = DATA_DIR / 'thailand_provinces_geoboundaries.geojson'
 
 
 def parse_years(years_str: str) -> list:
@@ -229,18 +243,25 @@ async def main_async(args):
         chunk_size = args.chunk_size
         max_concurrent = args.max_concurrent
 
-    # Determine which provinces file to use (detailed geoBoundaries if available)
-    provinces_path = str(PROVINCES_GEOJSON_DETAILED) if PROVINCES_GEOJSON_DETAILED.exists() else None
+    # Build map of available provinces GeoJSON files for countries being processed
+    # Each country gets its own file; only pass files that actually exist on disk
+    available_provinces = {
+        iso: str(path)
+        for iso, path in COUNTRY_PROVINCES_GEOJSON.items()
+        if path.exists()
+    }
+    if available_provinces:
+        print(f"[PROVINCES] Loaded boundaries for: {', '.join(available_provinces.keys())}")
 
-    # Initialize orchestrator
+    # Initialize orchestrator (pass all available province files)
     orchestrator = CountryReportOrchestrator(
         cache_dir=args.cache,
         results_dir=args.output,
         chunk_size_km=chunk_size,
         max_concurrent=max_concurrent,
         api_timeout=args.api_timeout,
-        enabled_modules=set(args.modules),  # Convert list to set for enabled modules
-        provinces_geojson_path=provinces_path
+        enabled_modules=set(args.modules),
+        provinces_geojson_paths=available_provinces  # dict: ISO -> path
     )
 
     # Clear cache if requested
