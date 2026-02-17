@@ -174,7 +174,8 @@ Examples:
     parser.add_argument(
         '--province-level',
         action='store_true',
-        help='Analyze at province level (admin_level=4) instead of country level (Thailand only)'
+        help='Analyze at province level (ADM1) instead of country level. '
+             'Requires a geoBoundaries GeoJSON file for the country in the data/ directory.'
     )
 
     return parser.parse_args()
@@ -280,20 +281,31 @@ async def main_async(args):
         print()
 
         try:
-            if args.province_level and country == 'TH':
-                # Province-level analysis for Thailand
-                print(f"[MODE] Province-level analysis (admin_level=4)")
+            # Check if province-level analysis is requested and supported for this country
+            provinces_geojson_path = COUNTRY_PROVINCES_GEOJSON.get(country)
+            can_do_province = (
+                args.province_level
+                and provinces_geojson_path is not None
+                and provinces_geojson_path.exists()
+            )
+
+            if args.province_level and not can_do_province:
+                if provinces_geojson_path is None:
+                    print(f"[WARNING] No geoBoundaries file configured for {country}.")
+                    print(f"[WARNING] Add an entry to COUNTRY_PROVINCES_GEOJSON in main.py.")
+                else:
+                    print(f"[WARNING] geoBoundaries file not found: {provinces_geojson_path}")
+                    print(f"[WARNING] Falling back to country-level analysis for {country}.")
                 print()
 
-                # Check if provinces geojson exists
-                if not PROVINCES_GEOJSON.exists():
-                    print(f"[ERROR] Provinces GeoJSON not found: {PROVINCES_GEOJSON}")
-                    print(f"[ERROR] Run: python scripts/fetch_thailand_provinces.py")
-                    continue
+            if can_do_province:
+                # Province-level analysis using geoBoundaries GeoJSON
+                print(f"[MODE] Province-level analysis (ADM1) — {provinces_geojson_path.name}")
+                print()
 
                 # Create province analyzer
                 from analysis.province_analyzer import ProvinceAnalyzer
-                province_analyzer = ProvinceAnalyzer(orchestrator, PROVINCES_GEOJSON)
+                province_analyzer = ProvinceAnalyzer(orchestrator, provinces_geojson_path)
 
                 # Analyze all provinces
                 all_rows = await province_analyzer.analyze_provinces(
@@ -318,7 +330,7 @@ async def main_async(args):
                 print(f"   Rows: {len(df)}")
 
             else:
-                # Standard country-level analysis
+                # Standard country-level analysis (also fallback when province file missing)
                 print(f"[MODE] Country-level analysis")
                 print()
 
