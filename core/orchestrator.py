@@ -61,7 +61,9 @@ class CountryReportOrchestrator:
         results_dir: str = "./results",
         chunk_size_km: float = 50,
         max_concurrent: int = 10,
-        api_timeout: int = 30
+        api_timeout: int = 30,
+        enabled_modules: set = None,
+        provinces_geojson_path: str = None
     ):
         """
         Initialize orchestrator.
@@ -72,12 +74,17 @@ class CountryReportOrchestrator:
             chunk_size_km: Grid chunk size in km
             max_concurrent: Max concurrent requests
             api_timeout: API request timeout in seconds (default: 30)
+            enabled_modules: Set of enabled modules (default: {'geometric', 'tags'})
+            provinces_geojson_path: Path to provinces GeoJSON for province-level filtering (optional)
         """
         self.cache_dir = Path(cache_dir)
         self.results_dir = Path(results_dir)
         self.chunk_size_km = chunk_size_km
         self.max_concurrent = max_concurrent
         self.api_timeout = api_timeout
+
+        # Default to all modules if not specified
+        self.enabled_modules = enabled_modules if enabled_modules else {'geometric', 'tags'}
 
         # Create directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -87,7 +94,10 @@ class CountryReportOrchestrator:
         self.cache = CacheManager(cache_dir=str(cache_dir))
         self.aggregator = MetricsAggregator()
         self.async_runner = AsyncGridRunner(max_concurrent=max_concurrent)
-        self.polygon_filter = PolygonFilter()  # Auto-finds World_Countries.geojson
+        self.polygon_filter = PolygonFilter(
+            geojson_path=None,  # Auto-finds World_Countries.geojson
+            provinces_geojson_path=provinces_geojson_path
+        )
 
         # Initialize adapters
         # Import adapters here (after bootstrap has run) to ensure packages are available
@@ -183,6 +193,8 @@ class CountryReportOrchestrator:
                     logger.error(
                         f"Failed to process {iso_code} {year} {entity}: {e}"
                     )
+                    logger.error(f"Exception type: {type(e).__name__}")
+                    logger.error(f"Exception details:", exc_info=True)
                     # Add empty row to maintain consistency
                     all_rows.append(
                         self.aggregator._empty_metrics(iso_code, year, entity)
@@ -260,16 +272,18 @@ class CountryReportOrchestrator:
         iso_code: str,
         year: int,
         entity: str,
-        grids: List[Dict]
+        grids: List[Dict],
+        region_bbox: Optional[str] = None
     ) -> List[Optional[Dict[str, Any]]]:
         """
         Process grids with cache checking.
 
         Args:
-            iso_code: Country code
+            iso_code: Country code (or province cache key like "TH_BKK")
             year: Year
             entity: Entity type
             grids: List of grid dictionaries
+            region_bbox: Optional bbox for region (province) analysis. If provided, used instead of country bbox.
 
         Returns:
             List of grid results
@@ -307,6 +321,9 @@ class CountryReportOrchestrator:
         # Process uncached grids
         grids_to_process = [grids[i] for i in indices_to_process]
 
+        # Reset tag cache for this country-year-entity run
+        self._tags_cache_for_current_run = None
+
         # Create processing function with first_grid flag for tag analysis
         # Tag analysis should run on the first grid being processed (not cached)
         first_grid_in_list = grids_to_process[0] if grids_to_process else None
@@ -314,7 +331,7 @@ class CountryReportOrchestrator:
             is_first_grid = (first_grid_in_list and
                            grid['row'] == first_grid_in_list['row'] and
                            grid['col'] == first_grid_in_list['col'])
-            return self._analyze_grid(iso_code, year, entity, grid, is_first_grid)
+            return self._analyze_grid(iso_code, year, entity, grid, is_first_grid, region_bbox)
 
         # Process async
         grid_ids = [g['chunk_id'] for g in grids_to_process]
@@ -338,6 +355,29 @@ class CountryReportOrchestrator:
                     iso_code, grid['row'], grid['col'], year, entity, result
                 )
 
+        # Back-fill tag data into all processed grids that got None
+        # This ensures all cache files have the same tag data for aggregation
+        if self._tags_cache_for_current_run:
+            logger.info(f"Backfilling tag data to {len(indices_to_process)} grids")
+            backfill_count = 0
+            for idx, proc_idx in enumerate(indices_to_process):
+                result = results[proc_idx]
+                if result and result.get('tags') is None:
+                    # Update result with tag data
+                    result['tags'] = self._tags_cache_for_current_run
+                    # Re-cache with updated tags
+                    grid = grids[proc_idx]
+                    self._store_in_cache(
+                        iso_code, grid['row'], grid['col'], year, entity, result
+                    )
+                    backfill_count += 1
+                    logger.debug(
+                        f"Back-filled tags for {iso_code} grid {grid['row']}_{grid['col']} {year} {entity}"
+                    )
+            logger.info(f"Backfilled tags to {backfill_count} grids")
+        else:
+            logger.warning("Tag cache is empty - no tags to backfill!")
+
         return results
 
     def _analyze_grid(
@@ -346,7 +386,8 @@ class CountryReportOrchestrator:
         year: int,
         entity: str,
         grid: Dict,
-        is_first_grid: bool = False
+        is_first_grid: bool = False,
+        region_bbox: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single grid (sync function for async runner).
@@ -364,13 +405,18 @@ class CountryReportOrchestrator:
         try:
             from utils.grid_utils import get_country_bbox
 
-            # Get country bbox for semantic analysis
-            country_bbox = get_country_bbox(iso_code)
+            # Get bbox for analysis (use region_bbox if provided, otherwise lookup country bbox)
+            if region_bbox:
+                analysis_bbox = region_bbox
+            else:
+                # Extract base country code (handle province-level codes like "TH_BKK")
+                base_country_code = iso_code.split('_')[0] if '_' in iso_code else iso_code
+                analysis_bbox = get_country_bbox(base_country_code)
 
             result = {}
 
-            # Geometric complexity (per grid)
-            if self.geom_adapter:
+            # Geometric complexity (per grid) - only if enabled
+            if self.geom_adapter and 'geometric' in self.enabled_modules:
                 try:
                     geom_result = self.geom_adapter.analyze_grid(
                         grid['bbox'], entity, year, grid['chunk_id']
@@ -382,19 +428,24 @@ class CountryReportOrchestrator:
             else:
                 result['geometric'] = None
 
-            # Semantic tags (whole country, only on first grid to avoid duplication)
-            if self.tags_adapter and is_first_grid:
+            # Semantic tags (whole region, only on first grid to avoid duplication) - only if enabled
+            if self.tags_adapter and is_first_grid and 'tags' in self.enabled_modules:
                 try:
-                    logger.info(f"{iso_code} {year} {entity}: Starting tag analysis (once per country)")
+                    region_type = "region" if region_bbox else "country"
+                    logger.info(f"{iso_code} {year} {entity}: Starting tag analysis (once per {region_type})")
                     tags_result = self.tags_adapter.analyze_country(
-                        country_bbox, entity, year, iso_code
+                        analysis_bbox, entity, year, iso_code
                     )
+                    # Store tags result to reuse for other grids in this run
+                    self._tags_cache_for_current_run = tags_result
                     result['tags'] = tags_result
                 except Exception as e:
                     logger.error(f"{iso_code}: Tag analysis failed: {e}")
+                    self._tags_cache_for_current_run = None
                     result['tags'] = None
             else:
-                result['tags'] = None
+                # Reuse tag analysis from first grid (if tags module enabled)
+                result['tags'] = getattr(self, '_tags_cache_for_current_run', None) if 'tags' in self.enabled_modules else None
             return result
 
         except Exception as e:
@@ -437,7 +488,14 @@ class CountryReportOrchestrator:
         import pandas as pd
 
         new_df = self.aggregator.create_country_dataframe(rows)
-        filepath = self.results_dir / f"{iso_code.lower()}.csv"
+
+        # Generate suffix based on enabled modules
+        if self.enabled_modules == {'geometric', 'tags'}:
+            module_suffix = ''  # Default case, no suffix
+        else:
+            module_suffix = '_' + '_'.join(sorted(self.enabled_modules))
+
+        filepath = self.results_dir / f"{iso_code.lower()}{module_suffix}.csv"
 
         # Check if file exists
         if filepath.exists():
@@ -491,7 +549,14 @@ class CountryReportOrchestrator:
         import pandas as pd
 
         new_df = self.aggregator.create_tag_details_dataframe(rows)
-        filepath = self.results_dir / f"{iso_code.lower()}_tags_detail.csv"
+
+        # Generate suffix based on enabled modules
+        if self.enabled_modules == {'geometric', 'tags'}:
+            module_suffix = ''  # Default case, no suffix
+        else:
+            module_suffix = '_' + '_'.join(sorted(self.enabled_modules))
+
+        filepath = self.results_dir / f"{iso_code.lower()}_tags_detail{module_suffix}.csv"
 
         # Check if file exists
         if filepath.exists():

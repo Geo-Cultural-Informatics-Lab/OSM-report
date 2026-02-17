@@ -144,12 +144,12 @@ class SemanticTagsAdapter:
                 exc_info=True
             )
             return {
-                'entity_count': None,
-                'unique_tags_count': None,
-                'richness_mean': None,
-                'richness_median': None,
-                'evenness': None,
-                'shannon_index': None,
+                'entity_count': 0,
+                'unique_tags_count': 0,
+                'richness_mean': 0.0,
+                'richness_median': 0.0,
+                'evenness': 0.0,
+                'shannon_index': 0.0,
                 'tag_details': []
             }
 

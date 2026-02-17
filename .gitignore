@@ -30,6 +30,10 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+data/nul
+
+# geoBoundaries raw download files (only processed GeoJSON files needed)
+data/geoBoundaries-*
 
 # Python
 *.egg-info/

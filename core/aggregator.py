@@ -70,6 +70,12 @@ class MetricsAggregator:
         # The semantic adapter should have aggregated across chunks
         tag_metrics = valid_results[0].get('tags') or {}
 
+        # Helper function to safely get values, handling None
+        def safe_get(d, key, default):
+            """Get value from dict, treating None same as missing key."""
+            value = d.get(key, default)
+            return default if value is None else value
+
         logger.debug(
             f"{iso_code} {year} {entity_type}: Aggregated {len(valid_results)} grids, "
             f"total {total_entities:,} entities, complexity={weighted_complexity:.4f}"
@@ -79,12 +85,13 @@ class MetricsAggregator:
             'country': iso_code,
             'year': year,
             'entity': entity_type,
+            'entity_count': total_entities,
             'geometric_complexity': weighted_complexity,
-            'unique_tags_count': tag_metrics.get('unique_tags_count', 0),
-            'richness_mean': tag_metrics.get('richness_mean', 0.0),
-            'richness_median': tag_metrics.get('richness_median', 0.0),
-            'evenness': tag_metrics.get('evenness', 0.0),
-            'shannon_index': tag_metrics.get('shannon_index', 0.0)
+            'unique_tags_count': safe_get(tag_metrics, 'unique_tags_count', 0),
+            'richness_mean': safe_get(tag_metrics, 'richness_mean', 0.0),
+            'richness_median': safe_get(tag_metrics, 'richness_median', 0.0),
+            'evenness': safe_get(tag_metrics, 'evenness', 0.0),
+            'shannon_index': safe_get(tag_metrics, 'shannon_index', 0.0)
         }
 
     def extract_tag_details(
@@ -143,6 +150,7 @@ class MetricsAggregator:
             'country': iso_code,
             'year': year,
             'entity': entity_type,
+            'entity_count': 0,
             'geometric_complexity': 0.0,
             'unique_tags_count': 0,
             'richness_mean': 0.0,
@@ -169,6 +177,7 @@ class MetricsAggregator:
         # Ensure column order
         columns = [
             'country', 'year', 'entity',
+            'entity_count',
             'geometric_complexity',
             'unique_tags_count',
             'richness_mean', 'richness_median',

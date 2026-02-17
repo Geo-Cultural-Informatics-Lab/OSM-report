@@ -17,13 +17,14 @@ logger = logging.getLogger(__name__)
 class PolygonFilter:
     """Filter grids by country polygon intersection."""
 
-    def __init__(self, geojson_path: Optional[str] = None):
+    def __init__(self, geojson_path: Optional[str] = None, provinces_geojson_path: Optional[str] = None):
         """
         Initialize polygon filter.
 
         Args:
             geojson_path: Path to World_Countries.geojson file.
                          If None, tries to find it in geometric_complexity project.
+            provinces_geojson_path: Path to provinces GeoJSON file (optional).
         """
         if geojson_path is None:
             # Try to find in geometric_complexity project
@@ -51,6 +52,20 @@ class PolygonFilter:
             self.gdf = None
             self.enabled = False
 
+        # Load provinces if path provided
+        if provinces_geojson_path and Path(provinces_geojson_path).exists():
+            try:
+                self.provinces_gdf = gpd.read_file(provinces_geojson_path)
+                self.provinces_enabled = True
+                logger.info(f"Loaded {len(self.provinces_gdf)} provinces from {provinces_geojson_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load provinces: {e}, province filtering disabled")
+                self.provinces_gdf = None
+                self.provinces_enabled = False
+        else:
+            self.provinces_gdf = None
+            self.provinces_enabled = False
+
     def get_country_polygon(self, iso_code: str):
         """
         Get polygon geometry for a country.
@@ -76,6 +91,95 @@ class PolygonFilter:
         except Exception as e:
             logger.error(f"Error getting polygon for {iso_code}: {e}")
             return None
+
+    def get_province_polygon(self, province_code: str, country_iso: str = 'TH'):
+        """
+        Get polygon geometry for a province.
+
+        Args:
+            province_code: Province code (e.g., 'BKK', 'TH-10')
+            country_iso: Country ISO code (for scoping)
+
+        Returns:
+            Province geometry (Polygon or MultiPolygon) or None
+        """
+        if not self.provinces_enabled:
+            logger.debug(f"Provinces not loaded, cannot filter for {province_code}")
+            return None
+
+        try:
+            # Try matching by different code formats
+            matches = self.provinces_gdf[
+                (self.provinces_gdf['shapeISO'] == province_code) |
+                (self.provinces_gdf['shapeID'] == province_code) |
+                (self.provinces_gdf['shapeName'].str.contains(province_code, case=False, na=False, regex=False))
+            ]
+
+            if len(matches) == 0:
+                logger.warning(f"Province {province_code} not found in GeoJSON")
+                return None
+
+            return matches.iloc[0].geometry
+        except Exception as e:
+            logger.error(f"Error getting province polygon for {province_code}: {e}")
+            return None
+
+    def filter_grids_by_province(
+        self,
+        grids: List[Dict],
+        province_code: str,
+        country_iso: str = 'TH'
+    ) -> List[Dict]:
+        """
+        Filter grids to only include those intersecting with province polygon.
+
+        Args:
+            grids: List of grid dictionaries with 'bbox' key
+            province_code: Province code
+            country_iso: Country ISO code
+
+        Returns:
+            Filtered list of grids that intersect province boundary
+        """
+        if not self.provinces_enabled:
+            logger.debug("Province filtering disabled, returning all grids")
+            return grids
+
+        try:
+            # Get province polygon
+            province_geom = self.get_province_polygon(province_code, country_iso)
+            if province_geom is None:
+                logger.warning(f"No polygon for province {province_code}, returning all grids")
+                return grids
+
+            # Filter grids by intersection
+            filtered_grids = []
+            filtered_count = 0
+
+            for grid in grids:
+                # Parse bbox string "min_lon,min_lat,max_lon,max_lat"
+                bbox_parts = grid['bbox'].split(',')
+                min_lon, min_lat, max_lon, max_lat = map(float, bbox_parts)
+
+                # Create box geometry for grid
+                grid_box = box(min_lon, min_lat, max_lon, max_lat)
+
+                # Check if grid intersects with province polygon
+                if grid_box.intersects(province_geom):
+                    filtered_grids.append(grid)
+                else:
+                    filtered_count += 1
+
+            logger.debug(
+                f"{province_code}: Filtered out {filtered_count}/{len(grids)} grids "
+                f"(kept {len(filtered_grids)} grids)"
+            )
+
+            return filtered_grids
+
+        except Exception as e:
+            logger.error(f"Error filtering grids for province {province_code}: {e}, returning all grids")
+            return grids
 
     def filter_grids(self, grids: List[Dict], iso_code: str) -> List[Dict]:
         """

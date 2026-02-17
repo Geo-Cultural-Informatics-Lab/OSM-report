@@ -163,7 +163,26 @@ Examples:
         help='Verbose output'
     )
 
+    parser.add_argument(
+        '--modules',
+        nargs='+',
+        choices=['geometric', 'tags', 'completeness'],
+        default=['geometric', 'tags'],
+        help='Modules to run (default: geometric tags). Examples: --modules tags, --modules geometric tags'
+    )
+
+    parser.add_argument(
+        '--province-level',
+        action='store_true',
+        help='Analyze at province level (admin_level=4) instead of country level (Thailand only)'
+    )
+
     return parser.parse_args()
+
+
+# Province data paths
+PROVINCES_GEOJSON = Path(__file__).parent / 'data' / 'thailand_provinces_admin4.geojson'
+PROVINCES_GEOJSON_DETAILED = Path(__file__).parent / 'data' / 'thailand_provinces_geoboundaries.geojson'
 
 
 def parse_years(years_str: str) -> list:
@@ -210,13 +229,18 @@ async def main_async(args):
         chunk_size = args.chunk_size
         max_concurrent = args.max_concurrent
 
+    # Determine which provinces file to use (detailed geoBoundaries if available)
+    provinces_path = str(PROVINCES_GEOJSON_DETAILED) if PROVINCES_GEOJSON_DETAILED.exists() else None
+
     # Initialize orchestrator
     orchestrator = CountryReportOrchestrator(
         cache_dir=args.cache,
         results_dir=args.output,
         chunk_size_km=chunk_size,
         max_concurrent=max_concurrent,
-        api_timeout=args.api_timeout
+        api_timeout=args.api_timeout,
+        enabled_modules=set(args.modules),  # Convert list to set for enabled modules
+        provinces_geojson_path=provinces_path
     )
 
     # Clear cache if requested
@@ -235,17 +259,59 @@ async def main_async(args):
         print()
 
         try:
-            result = await orchestrator.generate_country_report(
-                iso_code=country,
-                years=years,
-                entities=entities
-            )
+            if args.province_level and country == 'TH':
+                # Province-level analysis for Thailand
+                print(f"[MODE] Province-level analysis (admin_level=4)")
+                print()
 
-            print(f"\n[SUCCESS] {country} report complete:")
-            print(f"   Primary CSV: {result['primary_file']}")
-            print(f"   Detail CSV: {result['detail_file']}")
-            print(f"   Rows: {result['total_rows']}")
-            print(f"   Tag details: {result['total_tag_details']}")
+                # Check if provinces geojson exists
+                if not PROVINCES_GEOJSON.exists():
+                    print(f"[ERROR] Provinces GeoJSON not found: {PROVINCES_GEOJSON}")
+                    print(f"[ERROR] Run: python scripts/fetch_thailand_provinces.py")
+                    continue
+
+                # Create province analyzer
+                from analysis.province_analyzer import ProvinceAnalyzer
+                province_analyzer = ProvinceAnalyzer(orchestrator, PROVINCES_GEOJSON)
+
+                # Analyze all provinces
+                all_rows = await province_analyzer.analyze_provinces(
+                    country_iso=country,
+                    years=years,
+                    entities=entities
+                )
+
+                # Write to CSV
+                import pandas as pd
+                df = pd.DataFrame(all_rows)
+
+                # Sort by province, year, entity
+                df = df.sort_values(['province_code', 'year', 'entity'])
+
+                # Save to CSV
+                output_file = Path(args.output) / f"{country.lower()}_provinces.csv"
+                df.to_csv(output_file, index=False)
+
+                print(f"\n[SUCCESS] Province report saved: {output_file}")
+                print(f"   Provinces: {df['province_code'].nunique()}")
+                print(f"   Rows: {len(df)}")
+
+            else:
+                # Standard country-level analysis
+                print(f"[MODE] Country-level analysis")
+                print()
+
+                result = await orchestrator.generate_country_report(
+                    iso_code=country,
+                    years=years,
+                    entities=entities
+                )
+
+                print(f"\n[SUCCESS] {country} report complete:")
+                print(f"   Primary CSV: {result['primary_file']}")
+                print(f"   Detail CSV: {result['detail_file']}")
+                print(f"   Rows: {result['total_rows']}")
+                print(f"   Tag details: {result['total_tag_details']}")
 
         except Exception as e:
             print(f"\n[ERROR] Failed to process {country}: {e}")
