@@ -314,15 +314,22 @@ async def main_async(args):
                     entities=entities
                 )
 
-                # Write to CSV
+                # Write to CSV (merge with existing file to preserve rows not in this run)
                 import pandas as pd
                 df = pd.DataFrame(all_rows)
+                output_file = Path(args.output) / f"{country.lower()}_provinces.csv"
+
+                merge_keys = ['country', 'province_code', 'year', 'entity']
+                if output_file.exists():
+                    existing_df = pd.read_csv(output_file)
+                    if not existing_df.empty and not df.empty:
+                        existing_keys = existing_df[merge_keys].apply(tuple, axis=1)
+                        new_keys = df[merge_keys].apply(tuple, axis=1)
+                        existing_df = existing_df[~existing_keys.isin(new_keys)]
+                    df = pd.concat([existing_df, df], ignore_index=True)
 
                 # Sort by province, year, entity
                 df = df.sort_values(['province_code', 'year', 'entity'])
-
-                # Save to CSV
-                output_file = Path(args.output) / f"{country.lower()}_provinces.csv"
                 df.to_csv(output_file, index=False)
 
                 print(f"\n[SUCCESS] Province report saved: {output_file}")
