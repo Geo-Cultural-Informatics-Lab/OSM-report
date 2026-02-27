@@ -1,217 +1,161 @@
 # OSM Country Report Generator
 
-Unified report generator for OpenStreetMap country-level quality metrics, integrating geometric complexity, tag semantic analysis, and completeness metrics.
+Generates multi-year, multi-country OpenStreetMap quality reports measuring geometric complexity and tag semantic richness for buildings and roads. Part of the *"Impacts of Corporate Editors on Collective Intelligence in OpenStreetMap"* project.
 
-## Features
-
-- **Geometric Complexity Analysis**: Per-grid building/road geometry complexity metrics
-- **Tag Semantic Analysis**: Country-level tag richness, diversity, and Shannon index
-- **Smart Caching**: Grid-level caching with chunk-size awareness
-- **Polygon Filtering**: Automatically filters out ocean/border grids
-- **Async Processing**: Concurrent API calls with configurable limits
-- **Progress Tracking**: Real-time progress bars and detailed logging
-
-## Dependencies
-
-**REQUIRED:** This project requires two companion packages to function:
-- `geometric_complexity`: Building/road geometry analysis (REQUIRED - no mock fallback)
-- `tags_semantic_analysis`: OSM tag semantic analysis (REQUIRED - no mock fallback)
-
-**Note:** As of 2026-02-10, mock adapters have been removed. The system will fail immediately if these dependencies are not installed, ensuring 100% real data in every run.
+**Authors:** Yair Grinberger (PI), Tomer Vagenfeld, Alexander Shapira
+**Affiliation:** Department of Geography, The Hebrew University of Jerusalem
+**Commissioned by:** Digital Infrastructure Insights Fund (D//F), February 2026
 
 ## Installation
 
-### Option 1: Development Setup (Editable Install - Recommended)
+This project depends on two companion packages that must be installed first.
 
-Assuming the directory structure is:
-```
-OSM/
-├── geometric_complexity/
-├── tags_semantic_analysis/
-└── report/
-```
-
-From the `report` directory:
+**Option A** -- Install from GitHub (recommended):
 ```bash
-cd C:\Users\user\code\OSM\report
-pip install -e ../geometric_complexity
-pip install -e ../tags_semantic_analysis
+pip install git+https://github.com/Geo-Cultural-Informatics-Lab/OSM-geometrical_complexity.git
+pip install git+https://github.com/Geo-Cultural-Informatics-Lab/OSM-tags_semantic_analysis.git
+git clone https://github.com/Geo-Cultural-Informatics-Lab/OSM-report.git
+cd OSM-report
 pip install -r requirements.txt
 ```
 
-Or from the OSM root directory:
+**Option B** -- Clone all repos locally (for development):
 ```bash
-cd C:\Users\user\code\OSM
-pip install -e geometric_complexity
-pip install -e tags_semantic_analysis
-cd report
+git clone https://github.com/Geo-Cultural-Informatics-Lab/OSM-geometrical_complexity.git
+git clone https://github.com/Geo-Cultural-Informatics-Lab/OSM-tags_semantic_analysis.git
+git clone https://github.com/Geo-Cultural-Informatics-Lab/OSM-report.git
+
+pip install -e OSM-geometrical_complexity
+pip install -e OSM-tags_semantic_analysis
+cd OSM-report
 pip install -r requirements.txt
 ```
 
-### Option 2: Production Setup (Package Install)
-
-```bash
-pip install git+https://github.com/yourusername/geometric_complexity.git
-pip install git+https://github.com/yourusername/tags_semantic_analysis.git
-git clone https://github.com/yourusername/osm-report.git
-cd osm-report
-pip install -r requirements.txt
-```
+**Requirements:** Python 3.8+, see `requirements.txt` for full dependency list.
 
 ## Quick Start
 
-### Basic Usage
-
 ```bash
-# Generate report for Thailand, 2024, buildings only
+# Single country, single year
 python main.py --countries TH --years 2024 --entities building
 
 # Multiple countries and years
-python main.py --countries TH MM --years 2020-2025 --entities building highway
+python main.py --countries TH MM MY --years 2015-2025 --entities building highway
 
-# Test mode (faster, for testing)
-python main.py --countries TH --years 2024 --entities building --test-mode
-```
+# Province-level analysis (requires geoBoundaries GeoJSON in data/)
+python main.py --countries TH --years 2015-2025 --entities building --province-level
 
-### Advanced Options
-
-```bash
-python main.py \
-  --countries TH MM \
-  --years 2015-2025 \
-  --entities building highway \
-  --chunk-size 25 \
-  --max-concurrent 5 \
-  --api-timeout 30 \
-  --cache ./cache \
-  --output ./results
+# Run only tag analysis module
+python main.py --countries TH --years 2024 --entities building --modules tags
 ```
 
 ## Command-Line Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--countries` | Country ISO codes (e.g., TH MM) | Required |
-| `--years` | Years to analyze (e.g., "2015-2025" or "2020 2022 2024") | Required |
-| `--entities` | Entity types: building, highway | Required |
+| `--countries` | Country ISO codes (e.g., `TH MM ID MY PH PG`) | Required |
+| `--years` | Years: `"2015-2025"` or `"2020 2022 2024"` | Required |
+| `--entities` | Entity types: `building`, `highway` | Required |
+| `--modules` | Analysis modules: `geometric`, `tags`, `completeness` | `geometric tags` |
+| `--province-level` | Analyze at province/state level (ADM1) | Off |
 | `--chunk-size` | Grid chunk size in km | 50 |
 | `--max-concurrent` | Max concurrent API requests | 10 |
-| `--api-timeout` | API timeout in seconds | 30 |
-| `--cache` | Cache directory | ./cache |
-| `--output` | Output directory | ./results |
-| `--test-mode` | Test mode (smaller chunks, fewer grids) | False |
-| `--clear-cache` | Clear cache before running | False |
-| `--verbose` | Verbose logging | False |
+| `--api-timeout` | API request timeout in seconds | 30 |
+| `--cache` | Cache directory | `./cache` |
+| `--output` | Output directory | `./results` |
+| `--clear-cache` | Clear cache before running | Off |
+| `--test-mode` | Smaller chunks for quick testing | Off |
+| `--verbose` | Verbose logging | Off |
 
-## Output
+## Province-Level Analysis
 
-### CSV Files
+Use `--province-level` to analyze each province/state separately. Requires a [geoBoundaries](https://www.geoboundaries.org/) ADM1 GeoJSON file in the `data/` directory. Supported countries (add more by editing `COUNTRY_PROVINCES_GEOJSON` in `main.py`):
 
-The generator creates two CSV files per country:
+| Country | File |
+|---------|------|
+| Thailand | `data/thailand_provinces_geoboundaries.geojson` |
+| Indonesia | `data/geoBoundaries-IDN-ADM1.geojson` |
+| Malaysia | `data/geoBoundaries-MYS-ADM1.geojson` |
+| Philippines | `data/geoBoundaries-PHL-ADM1.geojson` |
+| Papua New Guinea | `data/geoBoundaries-PNG-ADM1.geojson` |
+| Myanmar | `data/geoBoundaries-MMR-ADM1.geojson` |
 
-**Primary CSV** (`th.csv`):
-```csv
-country,year,entity,geometric_complexity,unique_tags_count,richness_mean,richness_median,evenness,shannon_index
-TH,2024,building,0.4523,42,3.25,2.80,0.75,2.45
-```
+Province results are saved as `{country}_provinces.csv` and merge safely with existing data on partial reruns.
 
-**Detail CSV** (`th_tags_detail.csv`):
-```csv
-country,year,entity,tag_key,frequency,proportion,rank,in_top5pct
-TH,2024,building,building,0.833,0.833,1,True
-TH,2024,building,addr:street,0.421,0.421,2,True
-```
+## Scripts
 
-## Performance Tuning
+| Script | Description |
+|--------|-------------|
+| `scripts/find_and_fix_missing.py` | Scans result CSVs for failed rows (`entity_count=0` or `unique_tags_count=0`), deletes their bad cache files, and prints ready-to-run fill-in commands. Use `--dry-run` to preview. |
+| `scripts/fetch_thailand_provinces.py` | Fetches Thailand province boundaries from Overpass API |
+| `scripts/validate_province_coverage.py` | Validates that grid filtering covers 100% of a province |
 
-### Recommended Settings by Use Case
+### Filling Missing Data
 
-**Quick Test (Single Year)**
+After a large run, some data points may fail due to API timeouts or network issues. To find and fix them:
+
 ```bash
-python main.py --countries TH --years 2024 --entities building \
-  --chunk-size 25 --max-concurrent 5 --test-mode
+cd results
+python ../scripts/find_and_fix_missing.py --dry-run   # preview
+python ../scripts/find_and_fix_missing.py              # delete bad cache + print commands
+# Then run the printed fill-in commands
 ```
 
-**Production (All Years)**
-```bash
-python main.py --countries TH MM --years 2015-2025 --entities building highway \
-  --chunk-size 25 --max-concurrent 5 --api-timeout 30
+## Output Format
+
+**Primary CSV** (`th.csv`) -- one row per country-year-entity:
+```
+country, year, entity, entity_count, geometric_complexity, unique_tags_count,
+richness_mean, richness_median, evenness, shannon_index
 ```
 
-**Dense Urban Areas**
-```bash
-python main.py --countries TH --years 2024 --entities building \
-  --chunk-size 15 --max-concurrent 3 --api-timeout 45
+**Detail CSV** (`th_tags_detail.csv`) -- per-tag breakdown:
+```
+country, year, entity, tag_key, frequency, proportion, rank, in_top5pct
 ```
 
-### Performance Tips
-
-1. **Smaller chunks** = fewer timeouts but more API calls
-2. **Lower concurrency** = more reliable but slower
-3. **Cache accumulates** - subsequent runs are much faster
-4. **Polygon filtering** saves 50-60% of API calls
+**Province CSV** (`th_provinces.csv`) -- one row per province-year-entity:
+```
+country, province_code, province_name, province_name_local, year, entity,
+entity_count, geometric_complexity, unique_tags_count, richness_mean, ...
+```
 
 ## Architecture
 
 ```
 report/
+├── main.py                          # CLI entry point
 ├── core/
-│   ├── orchestrator.py      # Main coordination
-│   ├── aggregator.py         # Metrics aggregation
-│   ├── cache_manager.py      # Grid-level caching
-│   └── _bootstrap.py         # Package loader
+│   ├── orchestrator.py              # Main coordination + caching
+│   ├── aggregator.py                # Grid-level metric aggregation
+│   └── cache_manager.py             # Disk-based grid cache
+├── analysis/
+│   └── province_analyzer.py         # Province-level analysis via geoBoundaries
 ├── integrations/
-│   ├── geometric_complexity_adapter.py
-│   ├── semantic_tags_adapter.py
-│   └── completeness_adapter.py
+│   ├── geometric_complexity_adapter.py  # Bridges to geometric_complexity package
+│   └── semantic_tags_adapter.py         # Bridges to tags_semantic_analysis package
 ├── utils/
-│   ├── grid_utils.py         # Grid splitting
-│   ├── polygon_filter.py     # Country polygon filtering
-│   └── async_runner.py       # Async processing
-└── main.py
+│   ├── grid_utils.py                # Bounding box → grid splitting
+│   ├── polygon_filter.py            # Country/province polygon filtering
+│   └── async_runner.py              # Async API request manager
+└── scripts/
+    └── find_and_fix_missing.py      # Missing data scanner
 ```
 
 ## Troubleshooting
 
-### Import Errors
+**Import errors** (`No module named 'geometric_complexity'`): Reinstall the companion packages with `pip install -e ../OSM-geometrical_complexity`.
 
-If you see "No module named 'geometric_complexity'":
-1. Check packages are installed: `pip list | grep geometric`
-2. Reinstall: `pip install -e /path/to/geometric_complexity/`
-3. See [ADAPTER_FIX.md](ADAPTER_FIX.md) for details
+**API timeouts**: Reduce chunk size (`--chunk-size 25`), increase timeout (`--api-timeout 60`), or lower concurrency (`--max-concurrent 3`).
 
-### Timeouts
-
-If many grids timeout:
-1. Reduce chunk size: `--chunk-size 15`
-2. Increase timeout: `--api-timeout 60`
-3. Lower concurrency: `--max-concurrent 3`
-
-See [TIMEOUT_GUIDE.md](TIMEOUT_GUIDE.md) for details.
-
-### Cache Issues
-
-If cache seems wrong:
-1. Check chunk size matches cached data
-2. Clear cache: `--clear-cache`
-3. See [CACHE_GUIDE.md](CACHE_GUIDE.md) for details
-
-## Documentation
-
-- [ADAPTER_FIX.md](ADAPTER_FIX.md) - How the real adapters work
-- [CACHE_GUIDE.md](CACHE_GUIDE.md) - Cache system explained
-- [LOGGING_GUIDE.md](LOGGING_GUIDE.md) - Understanding log messages
-- [TIMEOUT_GUIDE.md](TIMEOUT_GUIDE.md) - Timeout configuration
+**Stale cache**: Use `--clear-cache` to start fresh, or run `find_and_fix_missing.py` to selectively clear failed entries.
 
 ## License
 
-[Your License Here]
-
-## Contributing
-
-[Contributing guidelines]
+MIT License. See [LICENSE](LICENSE).
 
 ## Citation
 
 If you use this tool in research, please cite:
-[Your citation]
+
+> Grinberger, Y., Vagenfeld, T., & Shapira, A. (2026). *Impacts of Corporate Editors on Collective Intelligence in OpenStreetMap*. Department of Geography, The Hebrew University of Jerusalem. Commissioned by the Digital Infrastructure Insights Fund (D//F).

@@ -30,7 +30,15 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+nul
 data/nul
+
+# Sensitive files
+*.token.txt
+ghp_token.txt
+SCP.txt
+credentials.json
+secrets.yaml
 
 # geoBoundaries raw download files (only processed GeoJSON files needed)
 data/geoBoundaries-*
