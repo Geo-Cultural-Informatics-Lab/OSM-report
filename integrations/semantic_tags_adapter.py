@@ -76,7 +76,8 @@ class SemanticTagsAdapter:
         bbox: str,
         entity_type: str,
         year: int,
-        iso_code: str
+        iso_code: str,
+        filtered_chunks: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
         Analyze tag richness and diversity for a country.
@@ -86,6 +87,8 @@ class SemanticTagsAdapter:
             entity_type: Entity type (building/highway)
             year: Year
             iso_code: Country ISO code for logging
+            filtered_chunks: Optional list of pre-filtered chunk dicts (each with 'bbox' and 'chunk_id').
+                If provided, passed to the chunked analyzer to skip ocean/non-land chunks.
 
         Returns:
             Dictionary with aggregate metrics and tag details
@@ -116,7 +119,8 @@ class SemanticTagsAdapter:
                     entity_type=entity_key,
                     timestamp=timestamp,
                     top_tags_set=None,  # Will identify automatically
-                    percentile=95  # Top 5%
+                    percentile=95,  # Top 5%
+                    pre_filtered_chunks=filtered_chunks
                 )
 
             entity_count = results.get('entity_count', 0)

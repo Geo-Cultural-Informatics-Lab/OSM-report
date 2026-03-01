@@ -347,12 +347,13 @@ class CountryReportOrchestrator:
 
         # Create processing function with first_grid flag for tag analysis
         # Tag analysis should run on the first grid being processed (not cached)
+        # Pass ALL filtered grids as chunks so tag analysis only processes land areas
         first_grid_in_list = grids_to_process[0] if grids_to_process else None
         def process_single_grid(grid):
             is_first_grid = (first_grid_in_list and
                            grid['row'] == first_grid_in_list['row'] and
                            grid['col'] == first_grid_in_list['col'])
-            return self._analyze_grid(iso_code, year, entity, grid, is_first_grid, region_bbox)
+            return self._analyze_grid(iso_code, year, entity, grid, is_first_grid, region_bbox, filtered_chunks=grids)
 
         # Process async
         grid_ids = [g['chunk_id'] for g in grids_to_process]
@@ -408,7 +409,8 @@ class CountryReportOrchestrator:
         entity: str,
         grid: Dict,
         is_first_grid: bool = False,
-        region_bbox: Optional[str] = None
+        region_bbox: Optional[str] = None,
+        filtered_chunks: Optional[List[Dict]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single grid (sync function for async runner).
@@ -419,6 +421,8 @@ class CountryReportOrchestrator:
             entity: Entity type
             grid: Grid dictionary
             is_first_grid: Whether this is the first grid in filtered list (for tag analysis)
+            region_bbox: Optional bbox for region analysis
+            filtered_chunks: Optional pre-filtered chunk list for tag analysis
 
         Returns:
             Grid analysis result or None
@@ -455,7 +459,8 @@ class CountryReportOrchestrator:
                     region_type = "region" if region_bbox else "country"
                     logger.info(f"{iso_code} {year} {entity}: Starting tag analysis (once per {region_type})")
                     tags_result = self.tags_adapter.analyze_country(
-                        analysis_bbox, entity, year, iso_code
+                        analysis_bbox, entity, year, iso_code,
+                        filtered_chunks=filtered_chunks
                     )
                     # Store tags result to reuse for other grids in this run
                     self._tags_cache_for_current_run = tags_result
