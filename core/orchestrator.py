@@ -258,9 +258,23 @@ class CountryReportOrchestrator:
 
         logger.debug(f"{iso_code} {year} {entity}: Processing {len(grids)} grids after polygon filtering")
 
+        # Compute tight bbox from filtered grids (covers only land, not ocean)
+        # This ensures tag analysis doesn't waste API calls on ocean areas
+        if grids:
+            lons = []
+            lats = []
+            for g in grids:
+                parts = [float(x) for x in g['bbox'].split(',')]
+                lons.extend([parts[0], parts[2]])
+                lats.extend([parts[1], parts[3]])
+            filtered_bbox = f"{min(lons)},{min(lats)},{max(lons)},{max(lats)}"
+        else:
+            filtered_bbox = None
+
         # Process grids (check cache first, then analyze)
         grid_results = await self._process_grids_with_cache(
-            iso_code, year, entity, grids
+            iso_code, year, entity, grids,
+            region_bbox=filtered_bbox
         )
 
         # Aggregate results
