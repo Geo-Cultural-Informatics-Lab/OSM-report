@@ -1,10 +1,9 @@
 # OSM Country Report Generator
 
-Generates multi-year, multi-country OpenStreetMap quality reports measuring geometric complexity and tag semantic richness for buildings and roads. Part of the *"Impacts of Corporate Editors on Collective Intelligence in OpenStreetMap"* project.
+Generates multi-year, multi-country OpenStreetMap quality reports measuring geometric complexity and tag semantic richness for buildings and roads. 
 
 **Authors:** Yair Grinberger (PI), Tomer Vagenfeld, Alexander Shapira
-**Affiliation:** Department of Geography, The Hebrew University of Jerusalem
-**Commissioned by:** Digital Infrastructure Insights Fund (D//F), February 2026
+**Affiliation:** Department of Spatial Science, The Hebrew University of Jerusalem
 
 ## Installation
 
