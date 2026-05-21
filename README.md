@@ -157,4 +157,4 @@ MIT License. See [LICENSE](LICENSE).
 
 If you use this tool in research, please cite:
 
-> Grinberger, Y., Vagenfeld, T., & Shapira, A. (2026). *Impacts of Corporate Editors on Collective Intelligence in OpenStreetMap*. Department of Geography, The Hebrew University of Jerusalem. Commissioned by the Digital Infrastructure Insights Fund (D//F).
+> Grinberger, Y., Vagenfeld, T., & Shapira, A. (2026). *Impacts of Corporate Editors on Collective Intelligence in OpenStreetMap*. Department of Spatial Science, The Hebrew University of Jerusalem. 
