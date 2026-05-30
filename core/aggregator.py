@@ -76,9 +76,23 @@ class MetricsAggregator:
             value = d.get(key, default)
             return default if value is None else value
 
+        # GPS road quality metrics (highway only — 0 for buildings)
+        gps_road_count = sum(
+            (r.get('geometric') or {}).get('gps_road_count', 0)
+            for r in valid_results
+        )
+        gps_all_count = sum(
+            (r.get('geometric') or {}).get('gps_all_count', 0)
+            for r in valid_results
+        )
+        # Fall back to total_entities as denominator when gps_all_count not populated
+        denom = gps_all_count if gps_all_count > 0 else total_entities
+        gps_road_pct = gps_road_count / denom if denom > 0 else 0.0
+
         logger.debug(
             f"{iso_code} {year} {entity_type}: Aggregated {len(valid_results)} grids, "
-            f"total {total_entities:,} entities, complexity={weighted_complexity:.4f}"
+            f"total {total_entities:,} entities, complexity={weighted_complexity:.4f}, "
+            f"gps_road_pct={gps_road_pct:.3f}"
         )
 
         return {
@@ -91,7 +105,10 @@ class MetricsAggregator:
             'richness_mean': safe_get(tag_metrics, 'richness_mean', 0.0),
             'richness_median': safe_get(tag_metrics, 'richness_median', 0.0),
             'evenness': safe_get(tag_metrics, 'evenness', 0.0),
-            'shannon_index': safe_get(tag_metrics, 'shannon_index', 0.0)
+            'shannon_index': safe_get(tag_metrics, 'shannon_index', 0.0),
+            'gps_road_count': gps_road_count,
+            'gps_road_pct': gps_road_pct,
+            'completeness_score': None,  # filled later by completeness module
         }
 
     def extract_tag_details(
@@ -156,7 +173,10 @@ class MetricsAggregator:
             'richness_mean': 0.0,
             'richness_median': 0.0,
             'evenness': 0.0,
-            'shannon_index': 0.0
+            'shannon_index': 0.0,
+            'gps_road_count': 0,
+            'gps_road_pct': 0.0,
+            'completeness_score': None,
         }
 
     def create_country_dataframe(
@@ -181,7 +201,9 @@ class MetricsAggregator:
             'geometric_complexity',
             'unique_tags_count',
             'richness_mean', 'richness_median',
-            'evenness', 'shannon_index'
+            'evenness', 'shannon_index',
+            'completeness_score',
+            'gps_road_count', 'gps_road_pct',
         ]
 
         # Add future columns if they exist
