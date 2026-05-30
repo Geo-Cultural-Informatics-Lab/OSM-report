@@ -20,11 +20,14 @@ try:
     site_packages = site.getusersitepackages()
     pth_geometric = Path(site_packages) / "__editable__.geometric_complexity-0.1.0.pth"
     pth_tags = Path(site_packages) / "__editable__.tags_semantic_analysis-0.1.0.pth"
+    pth_innovation = Path(site_packages) / "__editable__.innovation-0.1.0.pth"
 
     if pth_geometric.exists():
         exec(pth_geometric.read_text())
     if pth_tags.exists():
         exec(pth_tags.read_text())
+    if pth_innovation.exists():
+        exec(pth_innovation.read_text())
 except Exception as e:
     # If loading fails, the orchestrator will raise an error
     logging.error(f"Could not load editable packages: {e}")
@@ -58,6 +61,7 @@ def setup_logging(verbose: bool = False):
                         'geometrical_complexity_analysis',
                         'tags_semantic_analysis',
                         'tag_semantic_analysis',
+                        'innovation',
                         'ohsome',
                        'urllib3', 'urllib3.connectionpool', 'asyncio']:
         sub_logger = logging.getLogger(logger_name)
@@ -152,6 +156,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--merge-from',
+        default=None,
+        help='Directory containing existing CSVs to merge with (preserves columns from '
+             'modules not run this time). Defaults to --output directory.'
+    )
+
+    parser.add_argument(
         '--clear-cache',
         action='store_true',
         help='Clear cache before running'
@@ -166,9 +177,9 @@ Examples:
     parser.add_argument(
         '--modules',
         nargs='+',
-        choices=['geometric', 'tags', 'completeness'],
+        choices=['geometric', 'tags', 'completeness', 'innovation'],
         default=['geometric', 'tags'],
-        help='Modules to run (default: geometric tags). Examples: --modules tags, --modules geometric tags'
+        help='Modules to run (default: geometric tags). Examples: --modules tags, --modules geometric tags innovation'
     )
 
     parser.add_argument(
@@ -258,6 +269,7 @@ async def main_async(args):
     orchestrator = CountryReportOrchestrator(
         cache_dir=args.cache,
         results_dir=args.output,
+        merge_from_dir=args.merge_from,
         chunk_size_km=chunk_size,
         max_concurrent=max_concurrent,
         api_timeout=args.api_timeout,
@@ -350,6 +362,8 @@ async def main_async(args):
                 print(f"\n[SUCCESS] {country} report complete:")
                 print(f"   Primary CSV: {result['primary_file']}")
                 print(f"   Detail CSV: {result['detail_file']}")
+                if result.get('innovation_file'):
+                    print(f"   Innovation CSV: {result['innovation_file']}")
                 print(f"   Rows: {result['total_rows']}")
                 print(f"   Tag details: {result['total_tag_details']}")
 
