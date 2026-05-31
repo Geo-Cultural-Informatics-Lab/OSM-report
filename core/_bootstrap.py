@@ -28,3 +28,10 @@ try:
 except ImportError:
     # Module doesn't exist, package not installed
     pass
+
+try:
+    import __editable___innovation_0_1_0_finder
+    __editable___innovation_0_1_0_finder.install()
+except ImportError:
+    # Module doesn't exist, package not installed
+    pass
